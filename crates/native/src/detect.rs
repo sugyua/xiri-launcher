@@ -10,7 +10,7 @@
 
 use std::path::{Path, PathBuf};
 
-use artcraft_launcher_core::{CraftApp, InstallSource, Installed, version};
+use xiri_launcher_core::{CraftApp, InstallSource, Installed, version};
 
 use crate::manifest::Manifest;
 
@@ -59,7 +59,7 @@ fn from_manifest(app: &CraftApp, manifest: &Manifest) -> Option<Installed> {
     }
     // On macOS the bundle itself is the truth (the app may have updated itself).
     #[cfg(target_os = "macos")]
-    if rec.kind == artcraft_launcher_core::PackageKind::Dmg {
+    if rec.kind == xiri_launcher_core::PackageKind::Dmg {
         return macos::read_bundle(app, &rec.path);
     }
     Some(Installed {
@@ -84,8 +84,8 @@ pub(crate) fn appimage_version(name: &str, stems: &[&str]) -> Option<Option<Stri
     if stems.iter().any(|s| base.eq_ignore_ascii_case(s)) {
         return Some(None);
     }
-    let parsed = artcraft_launcher_core::platform::parse_asset_name(&format!("{base}.AppImage"), stems)?;
-    (parsed.kind == artcraft_launcher_core::PackageKind::AppImage && parsed.token.starts_with("linux-")).then_some(Some(parsed.version))
+    let parsed = xiri_launcher_core::platform::parse_asset_name(&format!("{base}.AppImage"), stems)?;
+    (parsed.kind == xiri_launcher_core::PackageKind::AppImage && parsed.token.starts_with("linux-")).then_some(Some(parsed.version))
 }
 
 /// Who our Windows Installer packages name as their publisher.
@@ -186,7 +186,7 @@ pub mod windows {
 
     /// Reads the ProductVersion string from a program's VERSIONINFO, in the first language that
     /// has one, without running the program or any other process.
-    pub fn executable_version(path: &std::path::Path) -> Option<artcraft_launcher_core::version::Version> {
+    pub fn executable_version(path: &std::path::Path) -> Option<xiri_launcher_core::version::Version> {
         let path = dunce::canonicalize(path).ok()?;
         let info = winsafe::HVERSIONINFO::GetFileVersionInfo(path.to_str()?).ok()?;
         let listed = info.langs_and_cps().map(<[_]>::to_vec).unwrap_or_default();
@@ -206,7 +206,7 @@ pub mod windows {
     /// An MSI install found in the registry.
     pub struct MsiInstall {
         pub product_code: String,
-        pub version: Option<artcraft_launcher_core::version::Version>,
+        pub version: Option<xiri_launcher_core::version::Version>,
         pub exe: Option<PathBuf>,
     }
 
@@ -294,7 +294,7 @@ pub mod linux {
     /// pacman, Flatpak). Read once per detection pass.
     pub fn packages() -> Vec<Package> {
         let ours = |name: &str| {
-            artcraft_launcher_core::SUITE.iter().any(|a| {
+            xiri_launcher_core::SUITE.iter().any(|a| {
                 [InstallSource::Deb, InstallSource::Rpm, InstallSource::Pacman, InstallSource::Flatpak]
                     .iter()
                     .any(|m| crate::packages::candidate_names(a, *m).iter().any(|n| n == name))
@@ -462,7 +462,7 @@ mod linux_tests {
     #[test]
     fn ours_filter_matches_rpm_packages() {
         let ours = |name: &str| {
-            artcraft_launcher_core::SUITE.iter().any(|a| {
+            xiri_launcher_core::SUITE.iter().any(|a| {
                 [InstallSource::Deb, InstallSource::Rpm, InstallSource::Pacman, InstallSource::Flatpak]
                     .iter()
                     .any(|m| crate::packages::candidate_names(a, *m).iter().any(|n| n == name))
@@ -512,7 +512,7 @@ mod linux_tests {
 
 #[cfg(test)]
 mod tests {
-    use artcraft_launcher_core::SUITE;
+    use xiri_launcher_core::SUITE;
 
     use super::*;
 

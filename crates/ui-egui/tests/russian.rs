@@ -1,16 +1,16 @@
 //! The Russian UI, in its own test binary: the UI language is process-wide, so it can't share one
-//! with the English UI tests. `ARTCRAFT_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots (run with
+//! with the English UI tests. `XIRI_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots (run with
 //! `-- --test-threads=1`, see `ui.rs`).
 
 use std::cell::Cell;
 use std::rc::Rc;
 
-use artcraft_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, Source};
-use artcraft_launcher_core::release::{Asset, Release};
-use artcraft_launcher_core::status::InstallSource;
-use artcraft_launcher_core::{Arch, Installed, Os, Platform, SUITE, version};
-use artcraft_launcher_ui_egui::settings::ViewMode;
-use artcraft_launcher_ui_egui::{Host, LauncherUi, Settings};
+use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, Source};
+use xiri_launcher_core::release::{Asset, Release};
+use xiri_launcher_core::status::InstallSource;
+use xiri_launcher_core::{Arch, Installed, Os, Platform, SUITE, version};
+use xiri_launcher_ui_egui::settings::ViewMode;
+use xiri_launcher_ui_egui::{Host, LauncherUi, Settings};
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 
@@ -80,10 +80,10 @@ fn events() -> Vec<Event> {
 }
 
 fn harness(view: ViewMode) -> Harness<'static, Option<LauncherUi>> {
-    artcraft_launcher_ui_egui::i18n::set_test_lang(artcraft_launcher_ui_egui::i18n::Lang::EN);
+    xiri_launcher_ui_egui::i18n::set_test_lang(xiri_launcher_ui_egui::i18n::Lang::EN);
     let mut backend = Some(Fake { events: events(), clock: Rc::new(Cell::new(NOW)) });
     let settings =
-        Settings { view, notify: false, language: "ru".into(), theme: artcraft_launcher_ui_egui::theme::ThemeChoice::Dark, ..Settings::default() };
+        Settings { view, notify: false, language: "ru".into(), theme: xiri_launcher_ui_egui::theme::ThemeChoice::Dark, ..Settings::default() };
     Harness::builder().with_size(egui::vec2(1180.0, 900.0)).with_theme(egui::Theme::Dark).build_ui_state(
         move |ui, state: &mut Option<LauncherUi>| {
             if state.is_none()
@@ -101,7 +101,7 @@ fn harness(view: ViewMode) -> Harness<'static, Option<LauncherUi>> {
 }
 
 fn snapshot(h: &mut Harness<'_, Option<LauncherUi>>, name: &str) {
-    let Some(dir) = std::env::var_os("ARTCRAFT_LAUNCHER_SNAPSHOTS") else { return };
+    let Some(dir) = std::env::var_os("XIRI_LAUNCHER_SNAPSHOTS") else { return };
     let img = h.render().unwrap();
     img.save(std::path::Path::new(&dir).join(format!("{name}.png"))).unwrap();
 }
@@ -114,7 +114,7 @@ fn russian_ui_translates_labels_dates_and_messages() {
     snapshot(&mut h, "grid-ru-dark");
     // Product names stay in English.
     assert!(h.query_by_label("Launcher").is_none());
-    h.get_by_label("Craft App Suite");
+    h.get_by_label("Xiri App Library");
     h.get_by_label("Редактирование изображений");
     h.get_by_label("Обновить до 0.5.0");
     h.get_by_label_contains("Проверка контрольной суммы…");

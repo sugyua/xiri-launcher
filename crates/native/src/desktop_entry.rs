@@ -11,7 +11,7 @@
 
 use std::path::Path;
 
-use artcraft_launcher_core::CraftApp;
+use xiri_launcher_core::CraftApp;
 
 /// The key that marks an entry as written by the launcher.
 pub const MARKER: &str = "X-ArtCraft-Launcher=true";

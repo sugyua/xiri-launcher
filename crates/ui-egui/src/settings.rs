@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use artcraft_launcher_core::PackageKind;
+use xiri_launcher_core::PackageKind;
 use serde::{Deserialize, Serialize};
 
 use crate::i18n::t;
@@ -87,7 +87,7 @@ impl CheckEvery {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    pub install_locations: artcraft_launcher_core::protocol::InstallLocations,
+    pub install_locations: xiri_launcher_core::protocol::InstallLocations,
     pub view: ViewMode,
     pub filter: Filter,
     pub sort: SortKey,

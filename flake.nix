@@ -1,5 +1,5 @@
 {
-  description = "Experimental Nix flake for ArtCraft Launcher";
+  description = "Experimental Nix flake for Xiri Launcher";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -58,7 +58,7 @@
         };
 
         packages.default = pkgs.rustPlatform.buildRustPackage {
-          pname = "artcraft-launcher";
+          pname = "xiri-launcher";
           version = version;
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
@@ -88,7 +88,7 @@
 
         apps.default = {
           type = "app";
-          program = "${self.packages.${system}.default}/bin/artcraft-launcher";
+          program = "${self.packages.${system}.default}/bin/xiri-launcher";
         };
       });
 }

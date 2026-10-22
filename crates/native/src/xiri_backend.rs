@@ -1,0 +1,231 @@
+//! Xiri's backend. Network and disk work run away from egui's frame thread.
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::atomic::{AtomicBool, Ordering};
+use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, Source};
+use xiri_launcher_core::{Installed, InstallSource, Platform, Os, Arch, Release};
+use xiri_launcher_core::xiri::{AppInfo, PackageEntry, EntryKind, package_asset};
+use serde::{Serialize, Deserialize};
+use crate::http::{Http, Stop, Transfer};
+use crate::source::{GitHubSource, ReleaseSource};
+use crate::xiri_repositories::{self, CatalogCache};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct LocalApp { app: AppInfo, installed: Installed, entry: PackageEntry, managed: bool }
+struct Shared {
+    events: Mutex<Vec<Event>>,
+    catalog: Mutex<CatalogCache>,
+    installed: Mutex<BTreeMap<String, LocalApp>>,
+    releases: Mutex<BTreeMap<String, Release>>,
+    jobs: Mutex<BTreeMap<String, Arc<Stop>>>,
+    processes: Mutex<BTreeMap<String, std::process::Child>>,
+    checking: AtomicBool,
+    wake: Box<dyn Fn() + Send + Sync>,
+    root: PathBuf,
+}
+impl Shared {
+    fn emit(&self, event: Event) { self.events.lock().unwrap_or_else(PoisonError::into_inner).push(event); (self.wake)(); }
+    fn save_installed(&self) -> Result<(), String> {
+        let value = self.installed.lock().unwrap_or_else(PoisonError::into_inner);
+        let bytes = serde_json::to_vec_pretty(&*value).map_err(|e| e.to_string())?;
+        crate::paths::write_atomic(&self.root.join("installed-xiri.json"), &bytes)
+    }
+    fn app(&self, id: &str) -> Option<AppInfo> {
+        self.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.iter().find(|a| a.id == id).cloned()
+            .or_else(|| self.installed.lock().unwrap_or_else(PoisonError::into_inner).get(id).map(|a| a.app.clone()))
+    }
+    fn busy(&self, id: &str) -> bool {
+        let mut processes = self.processes.lock().unwrap_or_else(PoisonError::into_inner);
+        match processes.get_mut(id) { Some(child) => !matches!(child.try_wait(), Ok(Some(_))), None => false }
+    }
+    fn detected(&self) {
+        let apps = self.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone();
+        let installed = self.installed.lock().unwrap_or_else(PoisonError::into_inner);
+        for app in apps { self.emit(Event::Detected { app: app.id.clone(), installed: installed.get(&app.id).filter(|l| Path::new(&l.installed.location).is_file()).map(|l| l.installed.clone()) }); }
+    }
+    fn catalog_event(&self, warning: Option<String>) {
+        let mut apps = self.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone();
+        for local in self.installed.lock().unwrap_or_else(PoisonError::into_inner).values() {
+            if !apps.iter().any(|a| a.id == local.app.id) { apps.push(local.app.clone()); }
+        }
+        self.emit(Event::CatalogLoaded { apps, warning });
+        self.detected();
+    }
+}
+
+pub struct XiriBackend { shared: Arc<Shared> }
+fn read_json<T: serde::de::DeserializeOwned + Default>(path: &Path) -> T {
+    std::fs::read(path).ok().filter(|b| b.len() <= 16 * 1024 * 1024).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+}
+impl XiriBackend {
+    pub fn new(wake: impl Fn() + Send + Sync + 'static) -> Self {
+        let root = dirs::data_local_dir().map(|p| p.join("Xiri Launcher"));
+        let failure = root.is_none();
+        let root = root.unwrap_or_default();
+        let shared = Arc::new(Shared { events: Mutex::new(Vec::new()), catalog: Mutex::new(if failure {CatalogCache::default()} else {read_json(&root.join("catalog-xiri.json"))}),
+            installed: Mutex::new(if failure {BTreeMap::new()} else {read_json(&root.join("installed-xiri.json"))}), releases: Mutex::new(BTreeMap::new()), jobs: Mutex::new(BTreeMap::new()),
+            processes: Mutex::new(BTreeMap::new()), checking: AtomicBool::new(false), wake: Box::new(wake), root });
+        shared.catalog_event(if failure {Some("Pasta de dados do Windows indisponível".into())} else {None});
+        Self { shared }
+    }
+    fn check(&self) {
+        if self.shared.checking.swap(true, Ordering::SeqCst) { return; }
+        let shared = self.shared.clone();
+        std::thread::spawn(move || {
+            shared.emit(Event::CheckStarted);
+            let answer = Http::new().and_then(|http| {
+                let old = shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                match xiri_repositories::refresh(&http, &old) {
+                    Ok(next) => {
+                        let bytes = serde_json::to_vec(&next).map_err(|e| e.to_string())?;
+                        crate::paths::write_atomic(&shared.root.join("catalog-xiri.json"), &bytes)?;
+                        *shared.catalog.lock().unwrap_or_else(PoisonError::into_inner) = next;
+                        shared.catalog_event(None);
+                    },
+                    Err(e) => shared.catalog_event(Some(e)),
+                }
+                let source = GitHubSource::new(http, shared.root.join("releases-xiri.json"));
+                let apps = shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone();
+                for app in apps {
+                    let answer = source.latest(&app.repo, false);
+                    if let LatestRelease::Found(r) = &answer.latest {
+                        shared.releases.lock().unwrap_or_else(PoisonError::into_inner).insert(app.id.clone(), r.clone());
+                    }
+                    shared.emit(Event::Latest { app: app.id, latest: answer.latest, from: Origin::GitHub });
+                }
+                source.save();
+                Ok(())
+            });
+            if let Err(e) = answer { shared.catalog_event(Some(e)); }
+            shared.emit(Event::CheckFinished { at: crate::now(), source: Source::GitHubApi, rate_limited_until: None });
+            shared.checking.store(false, Ordering::SeqCst);
+        });
+    }
+    fn run_job(&self, id: String, operation: impl FnOnce(&Arc<Shared>, &str, &Stop) -> Result<String, String> + Send + 'static) {
+        let stop = Arc::new(Stop::default());
+        {
+            let mut jobs = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner);
+            if jobs.contains_key(&id) { return; }
+            jobs.insert(id.clone(), stop.clone());
+        }
+        let shared = self.shared.clone();
+        std::thread::spawn(move || {
+            let result = operation(&shared, &id, &stop);
+            shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).remove(&id);
+            shared.emit(Event::JobFinished {app: id, result});
+            shared.catalog_event(None);
+        });
+    }
+}
+
+fn associate(shared: &Arc<Shared>, id: &str, path: &str) -> Result<String, String> {
+    let app = shared.app(id).ok_or("Aplicativo desconhecido")?;
+    let target = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
+    if !target.is_file() { return Err("Selecione um arquivo EXE ou PS1".into()); }
+    let kind = match target.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
+        Some("exe") => EntryKind::Exe, Some("ps1") => EntryKind::Powershell, _ => return Err("Selecione um arquivo EXE ou PS1".into()),
+    };
+    let entry = PackageEntry { kind, path: target.file_name().and_then(|s| s.to_str()).ok_or("Nome de arquivo inválido")?.into() };
+    let installed = Installed {version: None, source: InstallSource::Binary, location: target.to_string_lossy().into(), package: None};
+    shared.installed.lock().unwrap_or_else(PoisonError::into_inner).insert(id.into(), LocalApp { app, installed, entry, managed: false });
+    shared.save_installed()?;
+    Ok("Programa local associado".into())
+}
+
+fn launch(shared: &Arc<Shared>, id: &str) -> Result<String, String> {
+    if shared.busy(id) { return Err("Este programa já está em execução".into()); }
+    let local = shared.installed.lock().unwrap_or_else(PoisonError::into_inner).get(id).cloned().ok_or("Programa não instalado")?;
+    let target = PathBuf::from(&local.installed.location);
+    if !target.is_file() { return Err("Arquivo não encontrado; associe o programa novamente".into()); }
+    let mut command = match local.entry.kind {
+        EntryKind::Exe => std::process::Command::new(&target),
+        EntryKind::Powershell => {
+            let system = std::env::var_os("SystemRoot").ok_or("Pasta Windows indisponível")?;
+            let mut command = std::process::Command::new(PathBuf::from(system).join("System32/WindowsPowerShell/v1.0/powershell.exe"));
+            command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(&target);
+            command
+        }
+    };
+    if let Some(folder) = target.parent() { command.current_dir(folder); }
+    let data = shared.root.join("apps").join(id).join("data");
+    std::fs::create_dir_all(&data).map_err(|e| e.to_string())?;
+    command.env("XIRI_APP_DATA", &data);
+    #[cfg(windows)] { use std::os::windows::process::CommandExt; command.creation_flags(0x08000000); }
+    let child = command.spawn().map_err(|e| format!("Não foi possível abrir o programa: {e}"))?;
+    shared.processes.lock().unwrap_or_else(PoisonError::into_inner).insert(id.into(), child);
+    Ok("Programa aberto".into())
+}
+
+#[cfg(windows)]
+fn install(shared: &Arc<Shared>, id: &str, stop: &Stop) -> Result<String, String> {
+    if shared.busy(id) { return Err("Feche o programa antes de atualizar".into()); }
+    let app = shared.app(id).ok_or("Aplicativo desconhecido")?;
+    let release = shared.releases.lock().unwrap_or_else(PoisonError::into_inner).get(id).cloned().ok_or("Sem release disponível")?;
+    let asset = package_asset(&app, &release).ok_or("Pacote incompatível: requer manifesto, ZIP e SHA256SUMS.txt")?;
+    if asset.size == 0 || asset.size > 2 * 1024 * 1024 * 1024 { return Err("Tamanho de pacote inválido".into()); }
+    if !xiri_launcher_core::release::download_url_under(&asset.url, &xiri_launcher_core::release::download_prefix(&app.repo)) { return Err("Origem do pacote não autorizada".into()); }
+    let http = Http::new()?;
+    let sums_asset = release.assets.iter().find(|a| a.name == "SHA256SUMS.txt").ok_or("Checksum não publicado")?;
+    let sums = http.get_text(&sums_asset.url)?.ok_or("Arquivo de checksums ausente")?;
+    let hash = xiri_launcher_core::release::parse_sha256sums(&sums).into_iter().find(|(name,_)| name == &asset.name).map(|(_,hash)| hash).ok_or("Pacote não consta no SHA256SUMS.txt")?;
+    let download = shared.root.join("downloads").join(format!("{id}-{hash}.zip"));
+    shared.emit(Event::Progress {app: id.into(), phase: JobPhase::Downloading {done:0,total:asset.size}});
+    http.download(&asset.url, &download, asset.size, &hash, stop, &mut |progress| {
+        if let Transfer::Bytes {done,total} = progress { shared.emit(Event::Progress {app: id.into(), phase: JobPhase::Downloading {done,total}}); }
+    })?;
+    stop.check()?;
+    shared.emit(Event::Progress {app:id.into(),phase:JobPhase::Verifying});
+    let app_root = shared.root.join("apps").join(id);
+    std::fs::create_dir_all(&app_root).map_err(|e| e.to_string())?;
+    let staging = tempfile::Builder::new().prefix("staging-").tempdir_in(&app_root).map_err(|e| e.to_string())?;
+    let file = std::fs::File::open(&download).map_err(|e| e.to_string())?;
+    crate::xiri_package::extract_verified(file, staging.path())?;
+    let manifest = app.manifest.as_ref().ok_or("Manifesto ausente")?;
+    crate::xiri_package::validate_package(staging.path(), manifest)?;
+    stop.check()?;
+    if shared.busy(id) { return Err("Feche o programa antes de atualizar".into()); }
+    shared.emit(Event::Progress {app:id.into(),phase:JobPhase::Installing});
+    let destination = app_root.join(&hash);
+    if !destination.exists() { std::fs::rename(staging.path(), &destination).map_err(|e| e.to_string())?; }
+    let target = crate::xiri_package::validate_package(&destination, manifest)?;
+    let entry = manifest.windows.as_ref().ok_or("Sem entrada Windows")?.entry.clone();
+    let installed = Installed {version:release.version.clone(),source:InstallSource::Launcher,location:target.to_string_lossy().into(),package:Some(hash)};
+    shared.installed.lock().unwrap_or_else(PoisonError::into_inner).insert(id.into(),LocalApp {app,installed,entry,managed:true});
+    shared.save_installed()?;
+    Ok("Programa instalado. Dados e versões anteriores foram preservados.".into())
+}
+#[cfg(not(windows))]
+fn install(_: &Arc<Shared>, _: &str, _: &Stop) -> Result<String,String> { Err("Instalação Xiri disponível inicialmente no Windows x64".into()) }
+
+impl Backend for XiriBackend {
+    fn catalog(&self) -> Vec<AppInfo> { self.shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone() }
+    fn send(&mut self, command: Command) {
+        match command {
+            Command::CheckForUpdates { .. } => self.check(),
+            Command::Detect => self.shared.catalog_event(None),
+            Command::Install {app} | Command::Replace {app} => self.run_job(app, install),
+            Command::Launch {app} => self.run_job(app, |shared,id,_| launch(shared,id)),
+            Command::Associate {app,path} => self.run_job(app, move |shared,id,_| associate(shared,id,&path)),
+            Command::Uninstall {app} => self.run_job(app, |shared,id,_| {
+                if shared.busy(id) { return Err("Feche o programa antes de removê-lo".into()); }
+                shared.installed.lock().unwrap_or_else(PoisonError::into_inner).remove(id);
+                shared.save_installed()?;
+                Ok("Associação removida; arquivos e dados foram preservados".into())
+            }),
+            Command::Reveal {app} => self.run_job(app, |shared,id,_| {
+                let local = shared.installed.lock().unwrap_or_else(PoisonError::into_inner).get(id).cloned().ok_or("Não instalado")?;
+                #[cfg(windows)] std::process::Command::new("explorer.exe").arg(Path::new(&local.installed.location).parent().ok_or("Pasta inválida")?).spawn().map_err(|e|e.to_string())?;
+                #[cfg(not(windows))] let _ = local;
+                Ok("Pasta aberta".into())
+            }),
+            Command::Cancel {app} | Command::Pause {app} => { if let Some(stop) = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).get(&app) { stop.cancel(); } },
+            Command::UpdateLauncher => {},
+            Command::Configure(_) | Command::FetchScreenshots { .. } => {},
+        }
+    }
+    fn poll(&mut self) -> Vec<Event> { std::mem::take(&mut *self.shared.events.lock().unwrap_or_else(PoisonError::into_inner)) }
+    fn capabilities(&self) -> Capabilities { Capabilities {manage_apps:cfg!(all(windows,target_arch="x86_64")),reveal_label:"Show in file manager",self_update:false} }
+    fn platform(&self) -> Option<Platform> { Some(Platform {os:Os::Windows,arch:Arch::X64}) }
+    fn now(&self) -> i64 { crate::now() }
+}

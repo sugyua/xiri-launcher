@@ -1,4 +1,4 @@
-//! The Craft App Suite: the thirteen apps the launcher knows about.
+//! The Xiri App Library: the thirteen apps the launcher knows about.
 //!
 //! The list is data so a later version can fetch it from an API; [`SUITE`] is the built-in copy.
 //!
@@ -72,7 +72,7 @@ const fn app(
     CraftApp { id, name, tagline, color, ink_light, ink_dark, repo, former_ids: &[], former_names: &[] }
 }
 
-/// The Craft App Suite, in display order matching getartcraft.com:
+/// The Xiri App Library, in display order matching getartcraft.com:
 pub const SUITE: [CraftApp; 13] = [
     app("photocraft", "PhotoCraft", "Image editing", [[0x2f, 0x7b, 0xf5], [0x1a, 0x5b, 0xc4], [0x7f, 0xb0, 0xff]], "storytold/photocraft"),
     app("vectorcraft", "VectorCraft", "Vector illustration", [[0xe8, 0x57, 0x3f], [0xb8, 0x3a, 0x24], [0xff, 0x8a, 0x70]], "storytold/vectorcraft"),
@@ -148,41 +148,35 @@ pub const SUITE: [CraftApp; 13] = [
 ];
 
 /// ArtCraft's website.
-pub const WEBSITE_URL: &str = "https://getartcraft.com";
+pub const WEBSITE_URL: &str = "https://github.com/sugyua";
 /// The GitHub account every Craft App's repository lives under: the only one the launcher
 /// installs from, whatever the release feed says.
 pub const GITHUB_OWNER: &str = "storytold";
 /// ArtCraft on GitHub: every Craft App's source.
-pub const GITHUB_URL: &str = "https://github.com/storytold";
+pub const GITHUB_URL: &str = "https://github.com/sugyua";
 /// ArtCraft's social accounts: (service, URL). Shown as small icons, less prominent than Discord.
-pub const SOCIAL: [(&str, &str); 5] = [
-    ("X", "https://x.com/get_artcraft"),
-    ("Instagram", "https://www.instagram.com/officialartcraftstudios"),
-    ("LinkedIn", "https://www.linkedin.com/company/artcraft-ai"),
-    ("YouTube", "https://www.youtube.com/@OfficialArtcraftStudios"),
-    ("TikTok", "https://www.tiktok.com/@artcraft.studios"),
-];
+pub const SOCIAL: [(&str, &str); 0] = [];
 
 /// The ArtCraft community on Discord.
-pub const DISCORD_URL: &str = "https://discord.gg/artcraft";
+pub const DISCORD_URL: &str = "https://github.com/sugyua";
 /// Deep link into the Discord application for the ArtCraft server invite.
-pub const DISCORD_APP_URL: &str = "discord://-/invite/artcraft";
+pub const DISCORD_APP_URL: &str = "https://github.com/sugyua";
 
-/// ArtCraft Launcher itself, described like a Craft App so it can update itself with the same
-/// machinery (asset names `artcraft-launcher-<ver>-…`, bundle id `ai.storyteller.artcraft-launcher`,
-/// `ArtCraft Launcher.app`). Not part of [`SUITE`].
+/// Xiri Launcher itself, described like a Craft App so it can update itself with the same
+/// machinery (asset names `xiri-launcher-<ver>-…`, bundle id `io.github.sugyua.xiri-launcher`,
+/// `Xiri Launcher.app`). Not part of [`SUITE`].
 pub const LAUNCHER: CraftApp = app(
-    "artcraft-launcher",
-    "ArtCraft Launcher",
-    "Installs and updates the Craft App Suite",
+    "xiri-launcher",
+    "Xiri Launcher",
+    "Installs and updates the Xiri App Library",
     [[0x0b, 0x0b, 0x0c], [0x0b, 0x0b, 0x0c], [0xf2, 0xf1, 0xee]],
-    "storytold/craft-launcher",
+    "sugyua/xiri-launcher",
 );
 
 /// The launcher's own repo, checked so it can say when a newer launcher is out.
-pub const LAUNCHER_REPO: &str = "storytold/craft-launcher";
+pub const LAUNCHER_REPO: &str = "sugyua/xiri-launcher";
 /// The launcher's own asset stem.
-pub const LAUNCHER_ID: &str = "artcraft-launcher";
+pub const LAUNCHER_ID: &str = "xiri-launcher";
 
 #[cfg(test)]
 mod tests {

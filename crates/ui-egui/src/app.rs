@@ -2,12 +2,12 @@
 
 use std::time::Duration;
 
-use artcraft_launcher_core::protocol::{
+use xiri_launcher_core::protocol::{
     Backend, BackendOptions, CANCELLED, Capabilities, Command, Event, INSTALL_CANCELLED, JobPhase, LatestRelease, PAUSED, Source,
 };
-use artcraft_launcher_core::release::Release;
-use artcraft_launcher_core::status::AppStatus;
-use artcraft_launcher_core::{Platform, SUITE};
+use xiri_launcher_core::release::Release;
+use xiri_launcher_core::status::AppStatus;
+use xiri_launcher_core::Platform;
 
 use crate::i18n::set_current;
 use crate::model::AppEntry;
@@ -58,12 +58,13 @@ pub trait Host {
     fn reduce_motion(&self) -> bool {
         false
     }
+    fn pick_program(&mut self) -> Option<String> { None }
     fn pick_folder(&mut self, _initial: Option<&str>) -> Option<String> {
         None
     }
     /// The URL to open when Discord is clicked. Defaults to the web link.
     fn discord_url(&self) -> &'static str {
-        artcraft_launcher_core::catalog::DISCORD_URL
+        xiri_launcher_core::catalog::DISCORD_URL
     }
     /// Quit the launcher for real (not just hide to the tray).
     fn quit(&mut self) {}
@@ -81,8 +82,9 @@ pub(crate) enum Dialog {
     ConfirmUninstall(String),
     Install { app: String, folder: String },
     Replace { app: String, path: String },
+    Associate(String),
     Settings,
-    LauncherUpdate(artcraft_launcher_core::Release),
+    LauncherUpdate(xiri_launcher_core::Release),
 }
 
 impl Dialog {
@@ -94,6 +96,7 @@ impl Dialog {
             Dialog::ConfirmUninstall(id) => ("uninstall", id),
             Dialog::Install { app, .. } => ("install", app),
             Dialog::Replace { app, .. } => ("replace", app),
+            Dialog::Associate(id) => ("associate", id),
             Dialog::Settings => ("settings", ""),
             Dialog::LauncherUpdate(r) => ("launcher-update", &r.tag),
         }
@@ -111,13 +114,13 @@ pub struct LauncherUi {
     pub(crate) rate_limited_until: Option<i64>,
     pub(crate) launcher_update: Option<Release>,
     /// The launcher's own update, while it downloads and installs.
-    pub(crate) launcher_job: Option<artcraft_launcher_core::protocol::JobPhase>,
+    pub(crate) launcher_job: Option<xiri_launcher_core::protocol::JobPhase>,
     /// The new launcher is in place: quit so it can start.
     restart_requested: bool,
     /// News from ArtCraft's release feed, shown inline until dismissed.
-    pub(crate) announcements: Vec<artcraft_launcher_core::feed::Notice>,
+    pub(crate) announcements: Vec<xiri_launcher_core::feed::Notice>,
     /// Alerts from the feed, shown as popups until acknowledged.
-    pub(crate) alerts: Vec<artcraft_launcher_core::feed::Notice>,
+    pub(crate) alerts: Vec<xiri_launcher_core::feed::Notice>,
     pub(crate) search: String,
     pub(crate) toasts: Vec<Toast>,
     pub(crate) dialog: Option<Dialog>,
@@ -179,6 +182,7 @@ impl LauncherUi {
         let cjk_font = lang.needs_cjk_font().then_some(lang);
         theme::install_fonts(ctx, cjk_font);
         egui_extras::install_image_loaders(ctx);
+        let backend_catalog = backend.catalog();
         let caps = backend.capabilities();
         let platform = backend.platform();
         let mut settings = settings;
@@ -186,7 +190,7 @@ impl LauncherUi {
         Self {
             backend,
             settings,
-            entries: SUITE.iter().map(AppEntry::new).collect(),
+            entries: backend_catalog.into_iter().map(AppEntry::new).collect(),
             caps,
             platform,
             checking: false,
@@ -217,7 +221,7 @@ impl LauncherUi {
             last_detect: 0,
             was_focused: true,
             auto_update_attempted: std::collections::BTreeSet::new(),
-            discord_url: artcraft_launcher_core::catalog::DISCORD_URL,
+            discord_url: xiri_launcher_core::catalog::DISCORD_URL,
         }
     }
 
@@ -275,11 +279,11 @@ impl LauncherUi {
     }
 
     pub(crate) fn entry(&self, id: &str) -> Option<&AppEntry> {
-        self.entries.iter().find(|e| e.app.id == id)
+        self.entries.iter().find(|e| &e.app.id == id)
     }
 
     fn entry_mut(&mut self, id: &str) -> Option<&mut AppEntry> {
-        self.entries.iter_mut().find(|e| e.app.id == id)
+        self.entries.iter_mut().find(|e| &e.app.id == id)
     }
 
     pub(crate) fn configure(&mut self) {
@@ -297,12 +301,13 @@ impl LauncherUi {
     pub(crate) fn custom_install_folders(&self) -> bool {
         self.caps.manage_apps
             && self.platform.is_some_and(|p| {
-                matches!(p.os, artcraft_launcher_core::Os::Windows | artcraft_launcher_core::Os::MacOs | artcraft_launcher_core::Os::Linux)
+                matches!(p.os, xiri_launcher_core::Os::Windows | xiri_launcher_core::Os::MacOs | xiri_launcher_core::Os::Linux)
             })
             && !crate::settings::is_flatpak_sandbox()
     }
 
     pub(crate) fn install_app(&mut self, id: &str) {
+        if self.entry(id).is_some_and(|e| e.app.repo.starts_with("sugyua/")) { self.send(Command::Install { app: id.into() }); return; }
         if !self.custom_install_folders() || self.entry(id).is_some_and(|e| e.installed.is_some()) {
             self.send(Command::Install { app: id.to_string() });
             return;
@@ -359,6 +364,14 @@ impl LauncherUi {
     /// Returns whether app state changed.
     fn handle(&mut self, ctx: &egui::Context, event: Event) -> bool {
         match event {
+            Event::CatalogLoaded { apps, warning } => {
+                let mut old = std::mem::take(&mut self.entries);
+                self.entries = apps.into_iter().map(|app| {
+                    if let Some(index) = old.iter().position(|e| &e.app.id == &app.id) { let mut entry = old.remove(index); entry.app = std::sync::Arc::new(app); entry } else { AppEntry::new(app) }
+                }).collect();
+                if let Some(warning) = warning { self.toast(ctx, warning, true); }
+                true
+            },
             Event::Latest { app, latest, from } => {
                 if let Some(e) = self.entry_mut(&app) {
                     // A failed check keeps the release we already know about (and where it came from).
@@ -381,7 +394,7 @@ impl LauncherUi {
                 true
             }
             Event::Progress { app, phase } => {
-                if app == artcraft_launcher_core::catalog::LAUNCHER_ID {
+                if app == xiri_launcher_core::catalog::LAUNCHER_ID {
                     self.launcher_job = Some(phase);
                     if matches!(self.dialog, Some(Dialog::LauncherUpdate(_))) {
                         self.dialog = None;
@@ -417,7 +430,7 @@ impl LauncherUi {
                 false
             }
             Event::JobFinished { app, result } => {
-                let launcher = app == artcraft_launcher_core::catalog::LAUNCHER_ID;
+                let launcher = app == xiri_launcher_core::catalog::LAUNCHER_ID;
                 // What the job was doing when it ended says what a cancellation called off.
                 let last = if launcher { self.launcher_job.take() } else { self.entry(&app).and_then(|e| e.job) };
                 if let Some(e) = self.entry_mut(&app) {
@@ -479,8 +492,8 @@ impl LauncherUi {
                 continue;
             }
             let Some(v) = e.latest_label() else { continue };
-            if self.settings.notified.get(e.app.id) != Some(&v) {
-                fresh.push((e.app.id, e.app.name, v));
+            if self.settings.notified.get(&e.app.id) != Some(&v) {
+                fresh.push((e.app.id.clone(), e.app.name.clone(), v));
             }
         }
         if fresh.is_empty() {
@@ -489,7 +502,7 @@ impl LauncherUi {
         if self.settings.notify {
             let (title, body) = match fresh.as_slice() {
                 [(_, name, v)] => {
-                    let body: String = tl!("Open ArtCraft Launcher to update.").to_string();
+                    let body: String = tl!("Open Xiri Launcher to update.").to_string();
                     (crate::i18n::fmt(tl!("{name} {v} is available"), &[("name", name), ("v", v)]), body)
                 }
                 many => {
@@ -527,7 +540,7 @@ impl LauncherUi {
             && let Some(r) = &self.launcher_update
             && self.launcher_job.is_none()
         {
-            let id = artcraft_launcher_core::catalog::LAUNCHER_ID.to_string();
+            let id = xiri_launcher_core::catalog::LAUNCHER_ID.to_string();
             let v = r.version_label();
             if !self.auto_update_attempted.contains(&(id.clone(), v.clone())) {
                 log::info!("auto-update: queuing launcher self-update to {v}");
@@ -646,7 +659,7 @@ impl LauncherUi {
     }
 
     /// The ids to show, filtered and sorted.
-    pub(crate) fn visible_ids(&self) -> Vec<&'static str> {
+    pub(crate) fn visible_ids(&self) -> Vec<String> {
         let needle = self.search.trim().to_lowercase();
         let mut list: Vec<(usize, &AppEntry)> = self
             .entries
@@ -675,7 +688,7 @@ impl LauncherUi {
         list.sort_by(|(ia, a), (ib, b)| {
             let ord = match sort {
                 SortKey::Suite => dir(ia.cmp(ib)),
-                SortKey::Name => dir(a.app.name.cmp(b.app.name)),
+                SortKey::Name => dir(a.app.name.cmp(&b.app.name)),
                 SortKey::Status => {
                     dir(crate::model::status_rank(&a.status(platform, manage)).cmp(&crate::model::status_rank(&b.status(platform, manage))))
                 }
@@ -688,7 +701,7 @@ impl LauncherUi {
                     opt(x.as_ref().zip(y.as_ref()).map(|(x, y)| x.cmp_precedence(y)), x.is_some(), y.is_some())
                 }
                 SortKey::Frequent => {
-                    let opened = |e: &AppEntry| self.settings.launches.get(e.app.id).copied().unwrap_or(0);
+                    let opened = |e: &AppEntry| self.settings.launches.get(&e.app.id).copied().unwrap_or(0);
                     dir(opened(a).cmp(&opened(b)))
                 }
                 SortKey::Released => {
@@ -705,7 +718,7 @@ impl LauncherUi {
         if grid {
             list.sort_by_key(|(_, e)| !e.status(platform, manage).is_installed());
         }
-        list.into_iter().map(|(_, e)| e.app.id).collect()
+        list.into_iter().map(|(_, e)| e.app.id.clone()).collect()
     }
 
     /// Opens an app, and counts it for "Frequently used".
@@ -723,7 +736,7 @@ impl LauncherUi {
     /// "ArtCraft API", "GitHub" or "ArtCraft API and GitHub": the services behind the releases on
     /// screen right now. `None` until something has loaded.
     pub(crate) fn sources_label(&self) -> Option<String> {
-        use artcraft_launcher_core::protocol::Origin;
+        use xiri_launcher_core::protocol::Origin;
         let mut api = false;
         let mut github = false;
         for e in &self.entries {
@@ -749,7 +762,7 @@ impl LauncherUi {
 
     /// Whether `entry` belongs in `filter`. Hidden apps stay out of every list except Hidden.
     pub(crate) fn in_filter(&self, entry: &AppEntry, filter: Filter) -> bool {
-        let hidden = self.settings.hidden.contains(entry.app.id);
+        let hidden = self.settings.hidden.contains(&entry.app.id);
         let status = entry.status(self.platform, self.caps.manage_apps);
         match filter {
             Filter::Hidden => hidden,

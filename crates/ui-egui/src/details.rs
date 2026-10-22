@@ -3,12 +3,12 @@
 //! and screenshots come from `core::details`; the live facts (version, date, download size, release
 //! notes) from the app's latest GitHub release.
 
-use artcraft_launcher_core::CraftApp;
+use xiri_launcher_core::CraftApp;
 use std::sync::Arc;
 
-use artcraft_launcher_core::details::AppDetails;
-use artcraft_launcher_core::platform::pick_asset;
-use artcraft_launcher_core::protocol::Command;
+use xiri_launcher_core::details::AppDetails;
+use xiri_launcher_core::platform::pick_asset;
+use xiri_launcher_core::protocol::Command;
 use egui::{Color32, CornerRadius, Id, Margin, Order, Rect, RichText, Sense, Stroke, Ui, emath::easing, pos2, vec2};
 
 use crate::app::LauncherUi;
@@ -221,7 +221,7 @@ impl LauncherUi {
     fn neighbour_apps(&self, id: &str) -> (Option<String>, Option<String>) {
         let mut ids: Vec<&str> = self.visible_ids().into_iter().filter(|i| AppDetails::by_id(i).is_some()).collect();
         if !ids.contains(&id) {
-            ids = artcraft_launcher_core::SUITE.iter().map(|a| a.id).filter(|i| AppDetails::by_id(i).is_some()).collect();
+            ids = xiri_launcher_core::SUITE.iter().map(|a| a.id).filter(|i| AppDetails::by_id(i).is_some()).collect();
         }
         let Some(at) = ids.iter().position(|i| *i == id) else { return (None, None) };
         if ids.len() < 2 {

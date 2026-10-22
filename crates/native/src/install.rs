@@ -21,9 +21,9 @@
 
 use std::path::{Path, PathBuf};
 
-use artcraft_launcher_core::protocol::{CANCELLED, INSTALL_CANCELLED, InstallLocations, JobPhase};
-use artcraft_launcher_core::release::{self, Asset, Release};
-use artcraft_launcher_core::{CraftApp, InstallSource, Installed, PackageKind, version};
+use xiri_launcher_core::protocol::{CANCELLED, INSTALL_CANCELLED, InstallLocations, JobPhase};
+use xiri_launcher_core::release::{self, Asset, Release};
+use xiri_launcher_core::{CraftApp, InstallSource, Installed, PackageKind, version};
 
 use crate::http::{Http, Stop, Transfer};
 use crate::manifest::Record;
@@ -162,7 +162,7 @@ fn bind_artifact_version(app: &CraftApp, release: &Release, asset: &Asset) -> Re
 
     // The version in the asset filename (`<stem>-<version>-<os>-<arch>.<ext>`), when it carries one.
     let stems: Vec<&str> = app.stems().collect();
-    if let Some(parsed) = artcraft_launcher_core::platform::parse_asset_name(&asset.name, &stems)
+    if let Some(parsed) = xiri_launcher_core::platform::parse_asset_name(&asset.name, &stems)
         && version::parse(&parsed.version).as_ref() != Some(release_version)
     {
         return Err(mismatch());
@@ -254,7 +254,7 @@ fn selected_folder(folder: &str, writable: bool) -> Result<PathBuf, String> {
     }
     if writable {
         let probe = path.join(format!(
-            ".artcraft-launcher-write-test-{}-{}",
+            ".xiri-launcher-write-test-{}-{}",
             std::process::id(),
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos())
         ));
@@ -612,7 +612,7 @@ fn prepare_home(home: &Path) {
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn staging_dir(dir: &Path) -> Result<tempfile::TempDir, String> {
     tempfile::Builder::new()
-        .prefix(".artcraft-launcher-")
+        .prefix(".xiri-launcher-")
         .tempdir_in(dir)
         .map_err(|e| format!("couldn't create a staging folder in {} ({e})", dir.display()))
 }
@@ -629,7 +629,7 @@ fn swap_into_place_via(staged: &Path, dest: &Path, rename: impl Fn(&Path, &Path)
     let backup = if dest.exists() {
         let parent = dest.parent().ok_or("the installed app has no parent folder")?;
         let backup = tempfile::Builder::new()
-            .prefix(".artcraft-launcher-backup-")
+            .prefix(".xiri-launcher-backup-")
             .tempdir_in(parent)
             .map_err(|e| format!("couldn't create a backup folder in {} ({e})", parent.display()))?;
         rename(dest, &backup.path().join("old")).map_err(|e| format!("couldn't move the old copy aside ({e})"))?;
@@ -720,7 +720,7 @@ fn turn<'a>(phase: &'a mut dyn FnMut(JobPhase), working: JobPhase) -> impl FnMut
 /// For [`INSTALLER`]: whether the user cancelled the job while it waits.
 #[cfg(any(target_os = "linux", windows))]
 fn cancelled(stop: &Stop) -> impl Fn() -> bool + '_ {
-    || stop.check().is_err_and(|e| e == artcraft_launcher_core::protocol::CANCELLED)
+    || stop.check().is_err_and(|e| e == xiri_launcher_core::protocol::CANCELLED)
 }
 
 #[cfg(target_os = "linux")]
@@ -728,8 +728,8 @@ pub(crate) mod linux {
     use std::ffi::{OsStr, OsString};
     use std::os::unix::fs::PermissionsExt;
 
-    use artcraft_launcher_core::distro;
-    use artcraft_launcher_core::protocol::CANCELLED;
+    use xiri_launcher_core::distro;
+    use xiri_launcher_core::protocol::CANCELLED;
 
     use super::*;
 
@@ -954,7 +954,7 @@ pub(crate) mod linux {
         let dest = dir.join(name);
         let ours = previous.is_some_and(|r| r.kind == PackageKind::AppImage && r.path == dest);
         if std::fs::symlink_metadata(&dest).is_ok_and(|m| m.is_dir() || !(replace || ours && m.is_file())) {
-            return Err(format!("{} already exists and wasn't installed by ArtCraft Launcher", dest.display()));
+            return Err(format!("{} already exists and wasn't installed by Xiri Launcher", dest.display()));
         }
         let staging = super::staging_dir(&dir)?;
         let partial = staging.path().join(name);
@@ -1138,7 +1138,7 @@ pub(crate) mod linux {
 pub mod macos {
     use std::time::Duration;
 
-    use artcraft_launcher_core::version::Version;
+    use xiri_launcher_core::version::Version;
 
     use super::*;
 
@@ -1153,7 +1153,7 @@ pub mod macos {
             return Ok(dir.to_path_buf());
         }
         let system = PathBuf::from("/Applications");
-        let probe = system.join(".artcraft-launcher-write-test");
+        let probe = system.join(".xiri-launcher-write-test");
         if std::fs::write(&probe, b"").is_ok() {
             let _ = std::fs::remove_file(&probe);
             return Ok(system);
@@ -1163,7 +1163,7 @@ pub mod macos {
         Ok(user)
     }
 
-    /// The Apple Developer team that signs every Craft App and ArtCraft Launcher (Learning
+    /// The Apple Developer team that signs every Craft App and Xiri Launcher (Learning
     /// Machines LLC): the macOS side of the Windows publisher check.
     pub const TEAM_ID: &str = "DJ6XS33FX8";
 
@@ -1263,7 +1263,7 @@ pub mod macos {
             && std::fs::symlink_metadata(&dest).is_ok()
             && (std::fs::symlink_metadata(&dest).is_ok_and(|m| m.file_type().is_symlink()) || crate::detect::macos::read_bundle(app, &dest).is_none())
         {
-            return Err(format!("{} already exists and wasn't installed by ArtCraft Launcher", dest.display()));
+            return Err(format!("{} already exists and wasn't installed by Xiri Launcher", dest.display()));
         }
         let staging = super::staging_dir(&dir)?;
         let staged = staging.path().join(&bundle);
@@ -1499,7 +1499,7 @@ pub(crate) fn msi_path(msi: &Path) -> Result<PathBuf, String> {
 
 #[cfg(windows)]
 pub mod windows {
-    use artcraft_launcher_core::protocol::CANCELLED;
+    use xiri_launcher_core::protocol::CANCELLED;
 
     use super::*;
 
@@ -2202,7 +2202,7 @@ mod tests {
     #[test]
     fn updates_keep_the_installed_format() {
         let inst = |source| Installed { version: None, source, location: String::new(), package: None };
-        let app = artcraft_launcher_core::CraftApp::by_id("photocraft").unwrap();
+        let app = xiri_launcher_core::CraftApp::by_id("photocraft").unwrap();
         let available = available_kinds();
         if let Some(first) = available.first() {
             assert_eq!(choose_kinds(app, None, None, &[]).first(), Some(first));
@@ -2219,7 +2219,7 @@ mod tests {
     #[test]
     fn only_the_release_arch_package_is_updated_by_the_launcher() {
         let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()) };
-        let app = artcraft_launcher_core::CraftApp::by_id("wordcraft").unwrap();
+        let app = xiri_launcher_core::CraftApp::by_id("wordcraft").unwrap();
         assert!(is_release_arch_package(app, &pacman("ai.storyteller.wordcraft")));
         for aur in ["wordcraft", "wordcraft-bin", "wordcraft-git"] {
             assert!(!is_release_arch_package(app, &pacman(aur)), "{aur}");
@@ -2230,7 +2230,7 @@ mod tests {
 
     #[test]
     fn arch_packages_from_a_repository_are_updated_with_the_system() {
-        let app = artcraft_launcher_core::CraftApp::by_id("wordcraft").unwrap();
+        let app = xiri_launcher_core::CraftApp::by_id("wordcraft").unwrap();
         let hint = pacman_update_hint(app, "wordcraft-bin", Some("omarchy"));
         assert!(hint.starts_with("WordCraft was installed from the omarchy repository or the AUR (wordcraft-bin)."));
         assert!(hint.ends_with("or sudo pacman -Syu"));
@@ -2247,7 +2247,7 @@ mod tests {
     #[test]
     fn aur_packages_are_not_updated_as_arch_pkg() {
         let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()) };
-        let app = artcraft_launcher_core::CraftApp::by_id("filmcraft").unwrap();
+        let app = xiri_launcher_core::CraftApp::by_id("filmcraft").unwrap();
         let installed = pacman("filmcraft-bin");
         assert!(managed_elsewhere_with(app, &installed, false, |_| None).is_some());
         assert_eq!(choose_kinds_with(app, Some(&installed), None, &[], &[], false), Vec::<PackageKind>::new());
@@ -2257,7 +2257,7 @@ mod tests {
     #[test]
     fn release_arch_packages_are_updated_as_arch_pkg() {
         let pacman = |name: &str| Installed { version: None, source: InstallSource::Pacman, location: String::new(), package: Some(name.into()) };
-        let app = artcraft_launcher_core::CraftApp::by_id("filmcraft").unwrap();
+        let app = xiri_launcher_core::CraftApp::by_id("filmcraft").unwrap();
         let installed = pacman("ai.storyteller.filmcraft");
         assert_eq!(managed_elsewhere_with(app, &installed, false, |_| None), None);
         assert_eq!(choose_kinds_with(app, Some(&installed), None, &[], &[], true), vec![PackageKind::ArchPkg]);
@@ -2266,7 +2266,7 @@ mod tests {
 
     #[test]
     fn unavailable_arch_package_not_selected_for_new_install() {
-        let app = artcraft_launcher_core::CraftApp::by_id("filmcraft").unwrap();
+        let app = xiri_launcher_core::CraftApp::by_id("filmcraft").unwrap();
         assert_eq!(choose_kinds_with(app, None, None, &[PackageKind::ArchPkg], &[], true), Vec::<PackageKind>::new());
         assert_eq!(choose_kinds_with(app, None, None, &[PackageKind::ArchPkg], &[], false), Vec::<PackageKind>::new());
         assert_eq!(choose_kinds_with(app, None, None, &[PackageKind::ArchPkg], &[PackageKind::ArchPkg], false), vec![PackageKind::ArchPkg]);
@@ -2373,7 +2373,7 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     mod macos_checks {
-        use artcraft_launcher_core::{SUITE, version};
+        use xiri_launcher_core::{SUITE, version};
 
         use super::macos::{Expect, TEAM_ID, install_dmg, signed_by};
         use super::*;
@@ -2532,7 +2532,7 @@ mod tests {
         }
 
         /// A real release passes. Run with `CRAFT_APP=/path/to/PhotoCraft.app cargo test -p
-        /// artcraft-launcher-native -- --ignored a_real_craft_app`.
+        /// xiri-launcher-native -- --ignored a_real_craft_app`.
         #[test]
         #[ignore = "needs a Craft App from a real release"]
         fn a_real_craft_app_carries_the_teams_signature() {

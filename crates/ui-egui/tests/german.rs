@@ -1,16 +1,16 @@
 //! The German UI, in its own test binary: the UI language is process-wide, so it can't share one
-//! with the English UI tests. `ARTCRAFT_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots (run with
+//! with the English UI tests. `XIRI_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots (run with
 //! `-- --test-threads=1`).
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use artcraft_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, PausedDownload, Source};
-use artcraft_launcher_core::release::{Asset, Release};
-use artcraft_launcher_core::status::InstallSource;
-use artcraft_launcher_core::{Arch, Installed, Os, Platform, SUITE, version};
-use artcraft_launcher_ui_egui::settings::ViewMode;
-use artcraft_launcher_ui_egui::{Host, LauncherUi, Settings};
+use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, PausedDownload, Source};
+use xiri_launcher_core::release::{Asset, Release};
+use xiri_launcher_core::status::InstallSource;
+use xiri_launcher_core::{Arch, Installed, Os, Platform, SUITE, version};
+use xiri_launcher_ui_egui::settings::ViewMode;
+use xiri_launcher_ui_egui::{Host, LauncherUi, Settings};
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 
@@ -110,7 +110,7 @@ fn harness_language(
     manage: bool,
     language: &str,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    artcraft_launcher_ui_egui::i18n::set_test_lang(artcraft_launcher_ui_egui::i18n::Lang::EN);
+    xiri_launcher_ui_egui::i18n::set_test_lang(xiri_launcher_ui_egui::i18n::Lang::EN);
     let sent = Rc::new(RefCell::new(Vec::new()));
     let sent2 = sent.clone();
     let mut backend = Some(Fake { events: events(), sent: sent2, manage, clock: Rc::new(Cell::new(NOW)) });
@@ -122,9 +122,9 @@ fn harness_language(
             {
                 let mut s = settings.clone();
                 s.theme = if theme == egui::Theme::Dark {
-                    artcraft_launcher_ui_egui::theme::ThemeChoice::Dark
+                    xiri_launcher_ui_egui::theme::ThemeChoice::Dark
                 } else {
-                    artcraft_launcher_ui_egui::theme::ThemeChoice::Light
+                    xiri_launcher_ui_egui::theme::ThemeChoice::Light
                 };
                 *state = Some(LauncherUi::new(ui.ctx(), Box::new(b), s));
             }
@@ -139,7 +139,7 @@ fn harness_language(
 }
 
 fn snapshot(h: &mut Harness<'_, Option<LauncherUi>>, name: &str) {
-    let Some(dir) = std::env::var_os("ARTCRAFT_LAUNCHER_SNAPSHOTS") else { return };
+    let Some(dir) = std::env::var_os("XIRI_LAUNCHER_SNAPSHOTS") else { return };
     let img = h.render().unwrap();
     img.save(std::path::Path::new(&dir).join(format!("{name}.png"))).unwrap();
 }
@@ -188,10 +188,10 @@ fn german_switches_persists_and_keeps_install_actions() {
         web.set_size(egui::vec2(width, 900.0));
         web.run_steps(6);
         for label in ["Show apps as cards", "Show apps as a table", "Settings", "Check for updates"] {
-            let rect = web.get_by_label(artcraft_launcher_ui_egui::i18n::t(label)).rect();
+            let rect = web.get_by_label(xiri_launcher_ui_egui::i18n::t(label)).rect();
             assert!(rect.left() >= 0.0 && rect.right() <= width, "{width}: {label} {rect:?}");
-            if let Some(text) = web.query_by_label("Craft App Suite") {
-                assert!(!rect.intersects(text.rect()), "{width}: Craft App Suite overlaps {label} {rect:?}");
+            if let Some(text) = web.query_by_label("Xiri App Library") {
+                assert!(!rect.intersects(text.rect()), "{width}: Xiri App Library overlaps {label} {rect:?}");
             }
         }
     }

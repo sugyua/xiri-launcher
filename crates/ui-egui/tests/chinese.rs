@@ -1,17 +1,17 @@
 //! The Simplified Chinese UI, in its own test binary: the UI language is process-wide, so it can't
 //! share one with the English UI tests. Chinese is drawn with the system's Chinese font; where
 //! there is none (CI, minimal Linux installs), the UI must stay in English and say why.
-//! `ARTCRAFT_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots (run with `-- --test-threads=1`).
+//! `XIRI_LAUNCHER_SNAPSHOTS=<dir>` also saves screenshots (run with `-- --test-threads=1`).
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use artcraft_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, PausedDownload, Source};
-use artcraft_launcher_core::release::{Asset, Release};
-use artcraft_launcher_core::status::InstallSource;
-use artcraft_launcher_core::{Arch, Installed, Os, Platform, SUITE, version};
-use artcraft_launcher_ui_egui::settings::ViewMode;
-use artcraft_launcher_ui_egui::{Host, LauncherUi, Settings};
+use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, PausedDownload, Source};
+use xiri_launcher_core::release::{Asset, Release};
+use xiri_launcher_core::status::InstallSource;
+use xiri_launcher_core::{Arch, Installed, Os, Platform, SUITE, version};
+use xiri_launcher_ui_egui::settings::ViewMode;
+use xiri_launcher_ui_egui::{Host, LauncherUi, Settings};
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 
@@ -111,7 +111,7 @@ fn harness_language(
     manage: bool,
     language: &str,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    artcraft_launcher_ui_egui::i18n::set_test_lang(artcraft_launcher_ui_egui::i18n::Lang::EN);
+    xiri_launcher_ui_egui::i18n::set_test_lang(xiri_launcher_ui_egui::i18n::Lang::EN);
     let sent = Rc::new(RefCell::new(Vec::new()));
     let sent2 = sent.clone();
     let mut backend = Some(Fake { events: events(), sent: sent2, manage, clock: Rc::new(Cell::new(NOW)) });
@@ -123,9 +123,9 @@ fn harness_language(
             {
                 let mut s = settings.clone();
                 s.theme = if theme == egui::Theme::Dark {
-                    artcraft_launcher_ui_egui::theme::ThemeChoice::Dark
+                    xiri_launcher_ui_egui::theme::ThemeChoice::Dark
                 } else {
-                    artcraft_launcher_ui_egui::theme::ThemeChoice::Light
+                    xiri_launcher_ui_egui::theme::ThemeChoice::Light
                 };
                 *state = Some(LauncherUi::new(ui.ctx(), Box::new(b), s));
             }
@@ -140,7 +140,7 @@ fn harness_language(
 }
 
 fn snapshot(h: &mut Harness<'_, Option<LauncherUi>>, name: &str) {
-    let Some(dir) = std::env::var_os("ARTCRAFT_LAUNCHER_SNAPSHOTS") else { return };
+    let Some(dir) = std::env::var_os("XIRI_LAUNCHER_SNAPSHOTS") else { return };
     let img = h.render().unwrap();
     img.save(std::path::Path::new(&dir).join(format!("{name}.png"))).unwrap();
 }
@@ -155,10 +155,10 @@ fn simplified_chinese_switches_persists_and_keeps_install_actions() {
     h.get_by_value("English").click();
     h.run_steps(2);
     // Opening Settings doesn't load the (large) Chinese font: the picker names it in English.
-    assert!(!artcraft_launcher_ui_egui::theme::cjk_font_loaded(artcraft_launcher_ui_egui::i18n::Lang::ZH_CN));
+    assert!(!xiri_launcher_ui_egui::theme::cjk_font_loaded(xiri_launcher_ui_egui::i18n::Lang::ZH_CN));
     h.get_by_label("Simplified Chinese").click();
     h.run_steps(3);
-    if !artcraft_launcher_ui_egui::theme::cjk_font_available(artcraft_launcher_ui_egui::i18n::Lang::ZH_CN) {
+    if !xiri_launcher_ui_egui::theme::cjk_font_available(xiri_launcher_ui_egui::i18n::Lang::ZH_CN) {
         // No Chinese font: choosing it keeps the UI in English, and Settings says why.
         assert_eq!(h.state().as_ref().unwrap().settings.language, "zh-CN");
         h.get_by_label_contains("No font for this language was found");

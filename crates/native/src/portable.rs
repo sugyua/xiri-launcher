@@ -4,7 +4,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::manifest::Record;
 use crate::paths::Paths;
-use artcraft_launcher_core::{CraftApp, PackageKind};
+use xiri_launcher_core::{CraftApp, PackageKind};
 
 const MAX_FILES: usize = 10_000;
 const MAX_BYTES: u64 = 4 * 1024 * 1024 * 1024;
@@ -436,14 +436,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let staging = dir.path().join("launcher-update");
         std::fs::create_dir_all(staging.join("backup")).unwrap();
-        std::fs::write(staging.join("backup").join("artcraft-launcher.exe"), "0.1.0").unwrap();
-        let zip = archive(dir.path(), "update.zip", &[("artcraft-launcher.exe", b"0.2.0")]);
-        let folder = dir.path().join("ArtCraft Launcher");
+        std::fs::write(staging.join("backup").join("xiri-launcher.exe"), "0.1.0").unwrap();
+        let zip = archive(dir.path(), "update.zip", &[("xiri-launcher.exe", b"0.2.0")]);
+        let folder = dir.path().join("Xiri Launcher");
         std::fs::create_dir_all(&folder).unwrap();
-        let error = unpack_over(&zip, &staging, &folder, std::ffi::OsStr::new("artcraft-launcher.exe"), &|_| Ok(())).unwrap_err();
+        let error = unpack_over(&zip, &staging, &folder, std::ffi::OsStr::new("xiri-launcher.exe"), &|_| Ok(())).unwrap_err();
         assert!(error.contains("previous files"), "{error}");
-        assert_eq!(std::fs::read_to_string(staging.join("backup").join("artcraft-launcher.exe")).unwrap(), "0.1.0");
-        assert!(!folder.join("artcraft-launcher.exe").exists());
+        assert_eq!(std::fs::read_to_string(staging.join("backup").join("xiri-launcher.exe")).unwrap(), "0.1.0");
+        assert!(!folder.join("xiri-launcher.exe").exists());
     }
 
     /// Validation of the installed copy is part of the transaction, while a backup still exists.
@@ -451,13 +451,13 @@ mod tests {
     fn a_self_update_that_fails_validation_puts_the_previous_files_back() {
         let dir = tempfile::tempdir().unwrap();
         let staging = dir.path().join("launcher-update");
-        let folder = dir.path().join("ArtCraft Launcher");
+        let folder = dir.path().join("Xiri Launcher");
         std::fs::create_dir_all(&folder).unwrap();
-        let exe = folder.join("artcraft-launcher.exe");
+        let exe = folder.join("xiri-launcher.exe");
         std::fs::write(&exe, "old launcher").unwrap();
-        let zip = archive(dir.path(), "update.zip", &[("launcher/artcraft-launcher.exe", b"new launcher"), ("launcher/README.md", b"new readme")]);
+        let zip = archive(dir.path(), "update.zip", &[("launcher/xiri-launcher.exe", b"new launcher"), ("launcher/README.md", b"new readme")]);
         let checked = std::cell::Cell::new(false);
-        let error = unpack_over(&zip, &staging, &folder, std::ffi::OsStr::new("artcraft-launcher.exe"), &|file| {
+        let error = unpack_over(&zip, &staging, &folder, std::ffi::OsStr::new("xiri-launcher.exe"), &|file| {
             if file == exe {
                 assert_eq!(std::fs::read(file).unwrap(), b"new launcher");
                 assert!(folder.join("README.md").is_file());
@@ -582,7 +582,7 @@ mod tests {
             manifest.save(&paths.manifest()).unwrap();
             let restored = crate::manifest::Manifest::load(&paths.manifest());
             let detected = crate::detect::detect(app, &restored, &crate::detect::Snapshot::take()).unwrap();
-            assert_eq!(detected.version, artcraft_launcher_core::version::parse(version));
+            assert_eq!(detected.version, xiri_launcher_core::version::parse(version));
             assert_eq!(detected.location, record.path.to_string_lossy());
         }
         remove(app, &record).unwrap();

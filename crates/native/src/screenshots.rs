@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use artcraft_launcher_core::details::{AppDetails, MAX_SCREENSHOT_BYTES, looks_like_jpeg};
+use xiri_launcher_core::details::{AppDetails, MAX_SCREENSHOT_BYTES, looks_like_jpeg};
 
 use crate::http::Http;
 use crate::paths::{Paths, write_atomic};

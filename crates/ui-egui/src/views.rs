@@ -1,11 +1,10 @@
 //! The header, toolbar, footer, the grid of cards and the table, laid out like the apps page on
 //! getartcraft.com: hairline cells, mono labels and square controls.
 
-use artcraft_launcher_core::details::AppDetails;
-use artcraft_launcher_core::platform::pick_asset;
-use artcraft_launcher_core::protocol::{Command, JobPhase};
-use artcraft_launcher_core::status::AppStatus;
-use artcraft_launcher_core::time;
+use xiri_launcher_core::platform::pick_asset;
+use xiri_launcher_core::protocol::{Command, JobPhase};
+use xiri_launcher_core::status::AppStatus;
+use xiri_launcher_core::time;
 use egui::{Color32, CornerRadius, FontId, Rect, RichText, Sense, Stroke, Ui, vec2};
 
 use crate::app::{Dialog, LauncherUi, TitleBar};
@@ -75,7 +74,7 @@ impl LauncherUi {
             // The ArtCraft wordmark exactly as supplied, in its own cell.
             let logo = vec2(14.0 * crate::icons::ARTCRAFT_LOGO_ASPECT, 14.0);
             let (cell, _) = ui.allocate_exact_size(vec2(logo.x + 40.0, h), Sense::hover());
-            egui::Image::new(crate::icons::artcraft_logo(t.dark)).alt_text(tl!("ArtCraft")).paint_at(ui, Rect::from_center_size(cell.center(), logo));
+            egui::Image::new(crate::icons::artcraft_logo(t.dark)).alt_text(tl!("Xiri Launcher")).paint_at(ui, Rect::from_center_size(cell.center(), logo));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if bar == TitleBar::Custom {
                     widgets::window_buttons(ui, h);
@@ -85,10 +84,10 @@ impl LauncherUi {
                 }
                 // The controls reserve their actual widths before the secondary text gets space.
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                    if ui.available_width() >= 17.0 + widgets::hud_galley(ui, tl!("Craft App Suite"), t.muted).size().x {
+                    if ui.available_width() >= 17.0 + widgets::hud_galley(ui, tl!("Xiri App Library"), t.muted).size().x {
                         widgets::rule(ui, h);
                         ui.add_space(16.0);
-                        widgets::hud(ui, tl!("Craft App Suite"), t.muted);
+                        widgets::hud(ui, tl!("Xiri App Library"), t.muted);
                     }
                 });
             });
@@ -112,7 +111,7 @@ impl LauncherUi {
                         widgets::tag(ui, tl!("Update"), t.accent, Color32::WHITE);
                         ui.add_space(4.0);
                         ui.label(
-                            RichText::new(fmt(tl!("ArtCraft Launcher {version} is available."), &[("version", &r.version_label())]))
+                            RichText::new(fmt(tl!("Xiri Launcher {version} is available."), &[("version", &r.version_label())]))
                                 .family(theme::medium())
                                 .color(t.ink_strong),
                         );
@@ -137,7 +136,7 @@ impl LauncherUi {
                                         .on_hover_text(tl!("Stop waiting; the update can be started again later"))
                                         .clicked()
                                 {
-                                    self.send(Command::Cancel { app: artcraft_launcher_core::catalog::LAUNCHER_ID.to_string() });
+                                    self.send(Command::Cancel { app: xiri_launcher_core::catalog::LAUNCHER_ID.to_string() });
                                 }
                                 widgets::progress(ui, fraction, &caption, t.accent, 220.0);
                                 return;
@@ -253,7 +252,7 @@ impl LauncherUi {
     fn update_all_button(&mut self, ui: &mut Ui, updates: usize) {
         let label = if updates == 1 { tl!("Update 1 app").to_string() } else { fmt(tl!("Update all ({count})"), &[("count", &updates.to_string())]) };
         if widgets::button(ui, &label, Kind::Primary, 0.0).clicked() {
-            let ids: Vec<&str> = self.entries.iter().filter(|e| self.in_filter(e, Filter::Updates) && e.job.is_none()).map(|e| e.app.id).collect();
+            let ids: Vec<String> = self.entries.iter().filter(|e| self.in_filter(e, Filter::Updates) && e.job.is_none()).map(|e| e.app.id.clone()).collect();
             for id in ids {
                 self.send(Command::Install { app: id.to_string() });
             }
@@ -263,7 +262,7 @@ impl LauncherUi {
     /// News from ArtCraft's release feed (and app renames), until the user dismisses each.
     fn announcements(&mut self, ui: &mut Ui) {
         let t = Tokens::get(ui.ctx());
-        let shown: Vec<artcraft_launcher_core::feed::Notice> =
+        let shown: Vec<xiri_launcher_core::feed::Notice> =
             self.announcements.iter().filter(|n| !self.settings.dismissed_notices.contains(&n.id)).take(3).cloned().collect();
         for notice in shown {
             egui::Frame::new().fill(t.sunken).stroke(t.hairline()).inner_margin(egui::Margin::symmetric(14, 10)).show(ui, |ui| {
@@ -312,7 +311,7 @@ impl LauncherUi {
             let short = fmt(tl!("GitHub limit hit; back in {min} min"), &[("min", &min)]);
             (format!("· {full}"), format!("· {short}"))
         });
-        use artcraft_launcher_core::catalog::{GITHUB_URL, SOCIAL, WEBSITE_URL};
+        use xiri_launcher_core::catalog::{GITHUB_URL, SOCIAL, WEBSITE_URL};
         // Every link is an icon, reading Website, GitHub, Discord, then the social accounts.
         let named =
             |name: &'static str, label: &str, url: &'static str| widgets::IconLink { name, label: label.to_string(), tip: label.to_string(), url };
@@ -367,7 +366,7 @@ impl LauncherUi {
     // ---- grid ----------------------------------------------------------------------------
 
     /// Installed apps first (`ids` arrives that way), then the rest under a "Not installed" header.
-    pub(crate) fn grid(&mut self, ui: &mut Ui, ids: &[&'static str]) {
+    pub(crate) fn grid(&mut self, ui: &mut Ui, ids: &[String]) {
         let installed = ids.iter().take_while(|id| self.is_installed(id)).count();
         let (top, rest) = ids.split_at(installed);
         self.grid_block(ui, top);
@@ -381,7 +380,7 @@ impl LauncherUi {
         ui.add_space(24.0);
     }
 
-    fn grid_block(&mut self, ui: &mut Ui, ids: &[&'static str]) {
+    fn grid_block(&mut self, ui: &mut Ui, ids: &[String]) {
         if ids.is_empty() {
             return;
         }
@@ -402,7 +401,7 @@ impl LauncherUi {
     fn card(&mut self, ui: &mut Ui, id: &str, rect: Rect) {
         let Some(entry) = self.entry(id).cloned() else { return };
         let t = Tokens::get(ui.ctx());
-        let app = entry.app;
+        let app = &entry.app;
         let hovered = ui.rect_contains_pointer(rect);
         let wipe = if self.reduce_motion { 0.0 } else { 0.3 };
         let lift = ui.ctx().animate_bool_with_time(ui.id().with(("card-hover", id)), hovered, wipe);
@@ -414,9 +413,9 @@ impl LauncherUi {
         let app_color = if installed { rgb(app.color) } else { t.muted.lerp_to_gamma(rgb(app.color), lift) };
         // The whole card opens the app's page. Added before the card's own links and buttons, so
         // they sit on top of it and keep their clicks.
-        if AppDetails::by_id(id).is_some() {
+        if self.entry(id).is_some() {
             let open = ui.interact(rect, ui.id().with(("card-open", id)), Sense::click());
-            open.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, fmt(tl!("{name} details"), &[("name", app.name)])));
+            open.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, fmt(tl!("{name} details"), &[("name", &app.name)])));
             if open.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                 self.detail = Some(id.to_string());
             }
@@ -464,14 +463,14 @@ impl LauncherUi {
             // The slot is as tall as the text beside it when that is taller, so the two share a centre.
             let block = lines_height(ui, &[&name, &tagline], GAP);
             let (slot, icon_response) = ui.allocate_exact_size(vec2(ICON, block.max(ICON)), Sense::hover());
-            icon_response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Image, true, fmt(tl!("{name} icon"), &[("name", app.name)])));
+            icon_response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Image, true, fmt(tl!("{name} icon"), &[("name", &app.name)])));
             // The icon rises a little on hover, over a soft drop shadow (the site's only shadow).
             let icon_rect = Rect::from_center_size(slot.center(), vec2(ICON, ICON)).translate(vec2(0.0, -4.0 * lift));
             ui.painter().add(
                 egui::epaint::Shadow { offset: [0, 6], blur: 14, spread: 0, color: Color32::from_black_alpha(71) }
                     .as_shape(icon_rect.shrink(4.0), CornerRadius::same(12)),
             );
-            if let Some(icon) = crate::icons::app_image(ui.ctx(), app.id, in_colour) {
+            if let Some(icon) = crate::icons::app_image(ui.ctx(), &app.id, in_colour) {
                 icon.paint_at(ui, icon_rect);
             }
             ui.add_space(6.0);
@@ -481,7 +480,7 @@ impl LauncherUi {
                 ui.horizontal(|ui| {
                     widgets::wordmark_in(ui, app, 22.0, in_colour);
                 });
-                ui.add(egui::Label::new(RichText::new(tr_ctx(current(), app.id, app.tagline)).font(tagline.clone()).color(t.muted)).truncate());
+                ui.add(egui::Label::new(RichText::new(tr_ctx(current(), &app.id, &app.tagline)).font(tagline.clone()).color(t.muted)).truncate());
             });
         });
         ui.add_space(14.0);
@@ -504,9 +503,7 @@ impl LauncherUi {
                 ui.add_space(8.0);
             }
         }
-        if let Some(details) = AppDetails::by_id(id) {
-            crate::card_parts::blurb(ui, details.headline, t.muted, 4);
-        }
+        crate::card_parts::blurb(ui, &app.tagline, t.muted, 4);
         if let Some(line) = crate::card_parts::last_updated(&entry) {
             ui.add_space(6.0);
             ui.add(egui::Label::new(RichText::new(line).size(12.5).color(t.faint)).selectable(false));
@@ -518,7 +515,7 @@ impl LauncherUi {
 
     // ---- table ---------------------------------------------------------------------------
 
-    pub(crate) fn table(&mut self, ui: &mut Ui, ids: &[&'static str]) {
+    pub(crate) fn table(&mut self, ui: &mut Ui, ids: &[String]) {
         use egui_extras::{Column, TableBuilder};
         let t = Tokens::get(ui.ctx());
         let now = self.backend.now();
@@ -610,13 +607,13 @@ impl LauncherUi {
                                     rule(ui);
                                 }
                                 // Clicking the app's cell opens its page (the content is added after, so it wins any hit).
-                                if AppDetails::by_id(id).is_some() {
+                                if self.entry(id).is_some() {
                                     let open = ui.interact(ui.max_rect(), ui.id().with(("row-open", id)), Sense::click());
                                     open.widget_info(|| {
                                         egui::WidgetInfo::labeled(
                                             egui::WidgetType::Button,
                                             true,
-                                            fmt(tl!("{name} details"), &[("name", entry.app.name)]),
+                                            fmt(tl!("{name} details"), &[("name", &entry.app.name)]),
                                         )
                                     });
                                     if open.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
@@ -624,7 +621,7 @@ impl LauncherUi {
                                     }
                                 }
                                 let installed = entry.status(self.platform, self.caps.manage_apps).is_installed();
-                                if let Some(icon) = crate::icons::app_image(ui.ctx(), entry.app.id, installed) {
+                                if let Some(icon) = crate::icons::app_image(ui.ctx(), &entry.app.id, installed) {
                                     ui.add(icon.fit_to_exact_size(vec2(38.0, 38.0)));
                                 }
                                 ui.add_space(4.0);
@@ -637,7 +634,7 @@ impl LauncherUi {
                                     widgets::wordmark_in(ui, entry.app, TITLE_SIZE, installed);
                                     ui.add(
                                         egui::Label::new(
-                                            RichText::new(tr_ctx(current(), entry.app.id, entry.app.tagline)).size(TAGLINE_SIZE).color(t.muted),
+                                            RichText::new(tr_ctx(current(), &entry.app.id, &entry.app.tagline)).size(TAGLINE_SIZE).color(t.muted),
                                         )
                                         .truncate(),
                                     );
@@ -864,6 +861,7 @@ impl LauncherUi {
         let manage = self.caps.manage_apps;
         let reveal = self.caps.reveal_label;
         widgets::more_menu(ui, |ui| {
+            if manage && ui.button(tl!("Associate local program…")).clicked() { self.dialog = Some(Dialog::Associate(id.clone())); ui.close(); }
             if entry.release().is_some() && ui.button(tl!("Release notes")).clicked() {
                 self.dialog = Some(Dialog::Notes(id.clone()));
                 ui.close();
@@ -929,10 +927,10 @@ impl LauncherUi {
                 link(ui, tl!("All releases"), entry.app.releases_url());
             }
             ui.separator();
-            let hidden = self.settings.hidden.contains(entry.app.id);
+            let hidden = self.settings.hidden.contains(&entry.app.id);
             if ui.button(if hidden { tl!("Unhide App") } else { tl!("Hide App") }).clicked() {
                 if hidden {
-                    self.settings.hidden.remove(entry.app.id);
+                    self.settings.hidden.remove(&entry.app.id);
                     if self.settings.hidden.is_empty() && self.settings.filter == Filter::Hidden {
                         self.settings.filter = Filter::All;
                     }
@@ -992,14 +990,14 @@ pub(crate) fn version_line(e: &AppEntry, status: &AppStatus) -> String {
 /// The launcher's own download for this platform. `flatpak` is whether this copy runs as a
 /// Flatpak; such a copy's download stays the `.flatpak` bundle — offering it an AppImage (or a
 /// `.deb`) would point at replacing the sandboxed install with a different one.
-pub(crate) fn launcher_download(r: &artcraft_launcher_core::Release, p: artcraft_launcher_core::Platform, flatpak: bool) -> Option<String> {
-    use artcraft_launcher_core::PackageKind;
+pub(crate) fn launcher_download(r: &xiri_launcher_core::Release, p: xiri_launcher_core::Platform, flatpak: bool) -> Option<String> {
+    use xiri_launcher_core::PackageKind;
     let kinds: &[PackageKind] = match p.os {
-        artcraft_launcher_core::Os::Linux if flatpak => &[PackageKind::Flatpak],
-        artcraft_launcher_core::Os::Linux => &[PackageKind::AppImage, PackageKind::Deb],
+        xiri_launcher_core::Os::Linux if flatpak => &[PackageKind::Flatpak],
+        xiri_launcher_core::Os::Linux => &[PackageKind::AppImage, PackageKind::Deb],
         _ => p.default_kinds(),
     };
-    pick_asset(r, &[artcraft_launcher_core::catalog::LAUNCHER_ID], p, kinds).map(|(a, _)| a.url.clone())
+    pick_asset(r, &[xiri_launcher_core::catalog::LAUNCHER_ID], p, kinds).map(|(a, _)| a.url.clone())
 }
 
 /// A column of single-line texts, one per font and `gap` apart, centred across the row it is in.
@@ -1022,15 +1020,15 @@ fn lines_height(ui: &Ui, fonts: &[&FontId], gap: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use artcraft_launcher_core::catalog::LAUNCHER_ID;
-    use artcraft_launcher_core::{Arch, Asset, Platform, Release};
+    use xiri_launcher_core::catalog::LAUNCHER_ID;
+    use xiri_launcher_core::{Arch, Asset, Platform, Release};
 
     fn release() -> Release {
         let asset = |name: &str| Asset { name: name.into(), size: 0, url: format!("https://dl.example/{name}"), sha256: None };
         Release {
             tag: "v0.4.1".into(),
             version: None,
-            name: "ArtCraft Launcher v0.4.1".into(),
+            name: "Xiri Launcher v0.4.1".into(),
             published_at: None,
             html_url: "https://github.com/storytold/craft-launcher/releases/tag/v0.4.1".into(),
             notes: String::new(),
@@ -1044,7 +1042,7 @@ mod tests {
     }
 
     fn platform() -> Platform {
-        Platform { os: artcraft_launcher_core::Os::Linux, arch: Arch::X64 }
+        Platform { os: xiri_launcher_core::Os::Linux, arch: Arch::X64 }
     }
 
     #[test]

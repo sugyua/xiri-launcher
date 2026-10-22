@@ -17,9 +17,9 @@ dbg_macro = "warn"
 todo = "warn"
 
 [workspace.dependencies]
-artcraft-launcher-core = { path = "crates/core" }
-artcraft-launcher-ui-egui = { path = "crates/ui-egui" }
-artcraft-launcher-native = { path = "crates/native" }
+xiri-launcher-core = { path = "crates/core" }
+xiri-launcher-ui-egui = { path = "crates/ui-egui" }
+xiri-launcher-native = { path = "crates/native" }
 egui = "0.36"
 eframe = { version = "0.36", default-features = false }
 egui_extras = { version = "0.36", default-features = false }

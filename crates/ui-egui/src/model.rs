@@ -1,23 +1,24 @@
 //! What the UI knows about each app.
 
-use artcraft_launcher_core::platform::{Platform, pick_asset};
-use artcraft_launcher_core::protocol::{JobPhase, LatestRelease, PausedDownload};
-use artcraft_launcher_core::release::Release;
-use artcraft_launcher_core::status::{self, AppStatus, Latest};
-use artcraft_launcher_core::{CraftApp, Installed};
+use xiri_launcher_core::platform::{Platform, pick_asset};
+use xiri_launcher_core::protocol::{JobPhase, LatestRelease, PausedDownload};
+use xiri_launcher_core::release::Release;
+use xiri_launcher_core::status::{self, AppStatus, Latest};
+use xiri_launcher_core::Installed;
+use xiri_launcher_core::xiri::AppInfo;
 
 use crate::i18n::t;
 
 #[derive(Clone, Debug)]
 pub struct AppEntry {
-    pub app: &'static CraftApp,
+    pub app: std::sync::Arc<AppInfo>,
     pub latest: Option<LatestRelease>,
     pub installed: Option<Installed>,
     /// Detection has answered at least once.
     pub detected: bool,
     pub job: Option<JobPhase>,
     /// The service `latest` came from.
-    pub origin: Option<artcraft_launcher_core::protocol::Origin>,
+    pub origin: Option<xiri_launcher_core::protocol::Origin>,
     /// A download waiting to be resumed.
     pub paused: Option<PausedDownload>,
     /// A finished download waiting for another try at installing it.
@@ -25,7 +26,8 @@ pub struct AppEntry {
 }
 
 impl AppEntry {
-    pub fn new(app: &'static CraftApp) -> Self {
+    pub fn new(app: impl Into<AppInfo>) -> Self {
+        let app = std::sync::Arc::new(app.into());
         Self { app, latest: None, installed: None, detected: false, job: None, origin: None, paused: None, ready: false }
     }
 
@@ -40,7 +42,7 @@ impl AppEntry {
     pub fn has_download(&self, platform: Option<Platform>) -> bool {
         let (Some(r), Some(p)) = (self.release(), platform) else { return false };
         let stems: Vec<&str> = self.app.stems().collect();
-        pick_asset(r, &stems, p, p.download_kinds()).is_some()
+        if self.app.repo.starts_with("sugyua/") { p.os == xiri_launcher_core::Os::Windows && p.arch == xiri_launcher_core::Arch::X64 && xiri_launcher_core::xiri::package_asset(&self.app, r).is_some() } else { pick_asset(r, &stems, p, p.download_kinds()).is_some() }
     }
 
     pub fn status(&self, platform: Option<Platform>, manage_apps: bool) -> AppStatus {

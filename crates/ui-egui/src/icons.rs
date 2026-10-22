@@ -3,24 +3,7 @@
 use egui::ImageSource;
 
 /// The 128 px icon of a Craft App.
-pub fn app(id: &str) -> Option<ImageSource<'static>> {
-    Some(match id {
-        "photocraft" => egui::include_image!("../../../assets/app-icons/photocraft.png"),
-        "vectorcraft" => egui::include_image!("../../../assets/app-icons/vectorcraft.png"),
-        "filmcraft" => egui::include_image!("../../../assets/app-icons/filmcraft.png"),
-        "lightcraft" => egui::include_image!("../../../assets/app-icons/lightcraft.png"),
-        "pdfcraft" => egui::include_image!("../../../assets/app-icons/pdfcraft.png"),
-        "effectcraft" => egui::include_image!("../../../assets/app-icons/effectcraft.png"),
-        "designcraft" => egui::include_image!("../../../assets/app-icons/designcraft.png"),
-        "wordcraft" => egui::include_image!("../../../assets/app-icons/wordcraft.png"),
-        "deckcraft" => egui::include_image!("../../../assets/app-icons/deckcraft.png"),
-        "gridcraft" => egui::include_image!("../../../assets/app-icons/gridcraft.png"),
-        "cadcraft" => egui::include_image!("../../../assets/app-icons/cadcraft.png"),
-        "soundcraft" => egui::include_image!("../../../assets/app-icons/soundcraft.png"),
-        "figcraft" => egui::include_image!("../../../assets/app-icons/figcraft.png"),
-        _ => return None,
-    })
-}
+pub fn app(_id: &str) -> Option<ImageSource<'static>> { Some(egui::include_image!("../../../assets/xiri/mark.svg")) }
 
 /// A Craft App's icon: in colour, or in greys for an app that is not installed. The grey copy is
 /// made once per app from the same bundled picture and kept in the context.
@@ -62,14 +45,14 @@ fn desaturate(pixels: &mut [u8]) {
 /// An ArtCraft trademark, not covered by the MIT/Apache license (`docs/brand/LICENSE-brand.txt`).
 pub fn artcraft_logo(dark_background: bool) -> ImageSource<'static> {
     if dark_background {
-        egui::include_image!("../../../docs/brand/artcraft-logo-white.svg")
+        egui::include_image!("../../../assets/xiri/logo-white.svg")
     } else {
-        egui::include_image!("../../../docs/brand/artcraft-logo.svg")
+        egui::include_image!("../../../assets/xiri/logo.svg")
     }
 }
 
 /// The ArtCraft wordmark's width / height (its SVG view box: 1038.05 × 108).
-pub const ARTCRAFT_LOGO_ASPECT: f32 = 1038.05 / 108.0;
+pub const ARTCRAFT_LOGO_ASPECT: f32 = 250.0 / 28.0;
 
 /// A social service's logo (Simple Icons, white, for tinting), by its name in `catalog::SOCIAL`.
 pub fn social(service: &str) -> Option<ImageSource<'static>> {
@@ -88,7 +71,7 @@ pub fn social(service: &str) -> Option<ImageSource<'static>> {
 
 /// The ArtCraft "A" mark in blue, as supplied: the launcher's app icon and getartcraft.com's favicon.
 pub fn artcraft_mark() -> ImageSource<'static> {
-    egui::include_image!("../../../docs/brand/artcraft-mark.svg")
+    egui::include_image!("../../../assets/xiri/mark.svg")
 }
 
 #[cfg(test)]

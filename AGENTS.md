@@ -1,16 +1,16 @@
 # AGENTS.md: guide for AI agents and contributors
 
-ArtCraft Launcher installs, updates and launches the **Craft App Suite** (PhotoCraft, LightCraft,
+Xiri Launcher installs, updates and launches the **Xiri App Library** (PhotoCraft, LightCraft,
 FilmCraft, DesignCraft, VectorCraft, PdfCraft, EffectCraft, WordCraft, DeckCraft, GridCraft,
 CADCraft, SoundCraft, FigCraft). It is written in **Rust only** (no JavaScript or TypeScript): the desktop
 app is native egui/eframe, and the web build is the same Rust compiled to WebAssembly (trunk +
 wasm-bindgen). **No Tauri, Electron or webview shells**, ever.
 
-The product name is always **ArtCraft Launcher** in user-facing text: UI, window titles, About,
+The product name is always **Xiri Launcher** in user-facing text: UI, window titles, About,
 tray menu, notifications, installers, release names, docs prose. The suite is the **Craft App
-Suite**. Machine names stay lowercase: crates and binaries (`artcraft-launcher`,
-`artcraft-launcher-*`), file names, and the app id `ai.storyteller.artcraft-launcher`. Note the
-GitHub repo is `storytold/craft-launcher`, while every file and package is `artcraft-launcher-*`.
+Suite**. Machine names stay lowercase: crates and binaries (`xiri-launcher`,
+`xiri-launcher-*`), file names, and the app id `io.github.sugyua.xiri-launcher`. Note the
+GitHub repo is `storytold/craft-launcher`, while every file and package is `xiri-launcher-*`.
 
 Standards and learnings shared across the Craft apps live in `../craftrules` (read its
 `README.md` and `AGENTS.md`). Contribute reusable learnings there, never code.
@@ -19,14 +19,14 @@ Standards and learnings shared across the Craft apps live in `../craftrules` (re
 
 ```text
 crates/
-  core      artcraft-launcher-core      pure and wasm-safe: the app catalog, versions, GitHub
+  core      xiri-launcher-core      pure and wasm-safe: the app catalog, versions, GitHub
                                         release parsing, picking the right asset per platform
-  native    artcraft-launcher-native    desktop only: HTTP, detecting installed apps, download,
+  native    xiri-launcher-native    desktop only: HTTP, detecting installed apps, download,
                                         verify and install
-  ui-egui   artcraft-launcher-ui-egui   the shared egui UI (desktop and web)
+  ui-egui   xiri-launcher-ui-egui   the shared egui UI (desktop and web)
 apps/
-  artcraft-launcher                     desktop shell (eframe): window, tray icon, notifications
-  artcraft-launcher-web                 the same UI in the browser (trunk; catalog and downloads only)
+  xiri-launcher                     desktop shell (eframe): window, tray icon, notifications
+  xiri-launcher-web                 the same UI in the browser (trunk; catalog and downloads only)
 xtask/                                  cargo xtask ci | wasm | version | ico
 packaging/                              macOS, Windows, Linux, FreeBSD and web packaging scripts
 assets/app-icon/                        the launcher's own icon (master SVG, renders, tray icons)
@@ -58,7 +58,7 @@ settings file must produce an error the user can act on, never a panic. Shared s
 ### Installing other people's software safely
 
 - Download only from `https://github.com/storytold/<app>/releases` (and GitHub's asset CDN).
-  The one exception is a developer's own loopback mirror (`ARTCRAFT_LAUNCHER_DOWNLOAD_BASE`,
+  The one exception is a developer's own loopback mirror (`XIRI_LAUNCHER_DOWNLOAD_BASE`,
   `cargo xtask local`); keep it loopback-only and behind the `local-mirror` cargo feature, which
   release builds never enable.
 - Verify each download against the release's `SHA256SUMS.txt` before running or installing it.
@@ -92,7 +92,7 @@ Every user-facing string goes through `crates/ui-egui/src/i18n` (`tl!("…")` fo
 for `{placeholders}`, `tn` for counts). English in the code is the lookup key; adding a string
 means adding its row to every catalog marked `complete_menus` (the `*.tsv` files in
 `crates/ui-egui/src/i18n/`), which the i18n tests check. Translate clean-room from the meaning of
-the English text, never through another catalog. Product and app names (ArtCraft Launcher, Craft
+the English text, never through another catalog. Product and app names (Xiri Launcher, Craft
 App Suite, PhotoCraft…) stay in English.
 A CJK language is drawn with the system's own CJK font (`crates/ui-egui/src/cjk_font.rs`, desktop
 only; English where there is none): never bundle a CJK font, they are 10 MB and more.
@@ -135,32 +135,32 @@ packaging/linux/AppRun` and `actionlint`.
 The version lives only in `[workspace.package] version` in the root `Cargo.toml`
 (`cargo xtask version`, `cargo xtask version set X.Y.Z[-pre]`). Pushing to the `release` branch runs
 `.github/workflows/release.yml`, which builds every platform and creates the draft GitHub Release
-**ArtCraft Launcher v<version>** with `SHA256SUMS.txt`. The canonical recipe is
+**Xiri Launcher v<version>** with `SHA256SUMS.txt`. The canonical recipe is
 `../craftrules/release/playbook.md`; cutting a release is `../craftrules/release/cut-a-release.md`.
 
 Release assets (keep these names exact; the launcher's own self-update and the README rely on them):
 
 | Platform | Files |
 |---|---|
-| Windows | `artcraft-launcher-<ver>-windows-{x64,x86,arm64}.msi`, `…-windows-{x64,x86,arm64}-portable.zip` |
-| macOS | `artcraft-launcher-<ver>-macos-universal.dmg` |
-| Linux | `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.{AppImage,AppImage.zsync,deb,rpm,tar.gz,flatpak}`, `artcraft-launcher-<ver>-linux-riscv64.{deb,rpm,tar.gz}` |
-| FreeBSD | `artcraft-launcher-<ver>-freebsd-x86_64.tar.gz` |
-| Web | `artcraft-launcher-web-<ver>.zip` |
+| Windows | `xiri-launcher-<ver>-windows-{x64,x86,arm64}.msi`, `…-windows-{x64,x86,arm64}-portable.zip` |
+| macOS | `xiri-launcher-<ver>-macos-universal.dmg` |
+| Linux | `xiri-launcher-<ver>-linux-{x86_64,aarch64}.{AppImage,AppImage.zsync,deb,rpm,tar.gz,flatpak}`, `xiri-launcher-<ver>-linux-riscv64.{deb,rpm,tar.gz}` |
+| FreeBSD | `xiri-launcher-<ver>-freebsd-x86_64.tar.gz` |
+| Web | `xiri-launcher-web-<ver>.zip` |
 
 Packaging facts the code relies on:
 
 - The Windows MSI is **per-user** (no UAC prompt), by default into
-  `%LOCALAPPDATA%\Programs\ArtCraft Launcher`. Double-clicked it opens a WixUI setup wizard
+  `%LOCALAPPDATA%\Programs\Xiri Launcher`. Double-clicked it opens a WixUI setup wizard
   (Welcome; a folder page with a "Create a desktop shortcut" box; Ready; progress; Finish with
   "Launch"), whose art `package.ps1` draws at build time; self-update runs it with `/passive`, no
   wizard. The folder and the shortcut choice are recorded under
-  `HKCU\Software\Learning Machines LLC\ArtCraft Launcher` (`InstallDir`,
+  `HKCU\Software\Learning Machines LLC\Xiri Launcher` (`InstallDir`,
   `DesktopShortcutChoice`) and reused by the next version, and `self_update.rs` reads `InstallDir`
   to know the running copy came from the MSI. Its shortcuts set AppUserModelID
-  `ai.storyteller.artcraft-launcher`, which toast notifications need. `portable.txt` beside the exe switches on portable mode
-  (`ArtCraftLauncherData\` next to the exe).
-- The macOS bundle is `ArtCraft Launcher.app` (executable `Contents/MacOS/ArtCraft Launcher`), a
+  `io.github.sugyua.xiri-launcher`, which toast notifications need. `portable.txt` beside the exe switches on portable mode
+  (`XiriLauncherData\` next to the exe).
+- The macOS bundle is `Xiri Launcher.app` (executable `Contents/MacOS/Xiri Launcher`), a
   normal Dock app that can also sit in the menu bar: `LSUIElement` must never be set.
 - Linux: the tray uses StatusNotifierItem over D-Bus and notifications use
   `org.freedesktop.Notifications`, both in pure Rust (no GTK, appindicator or libdbus).
@@ -174,9 +174,9 @@ Packaging facts the code relies on:
 - `--socket=pulseaudio` in the launcher manifests is for an app running *inside* the sandbox
   (SoundCraft's ALSA reaches the runtime's PulseAudio plugin through it); it also covers the
   microphone, which SoundCraft records through.
-- `build.rs` reads `ARTCRAFT_LAUNCHER_BUILD_SHA` / `ARTCRAFT_LAUNCHER_BUILD_DATE` and, on Windows,
-  embeds `assets/app-icon/artcraft-launcher.ico`, failing the build when
-  `ARTCRAFT_LAUNCHER_REQUIRE_WINRES=1` and it can't.
+- `build.rs` reads `XIRI_LAUNCHER_BUILD_SHA` / `XIRI_LAUNCHER_BUILD_DATE` and, on Windows,
+  embeds `assets/app-icon/xiri-launcher.ico`, failing the build when
+  `XIRI_LAUNCHER_REQUIRE_WINRES=1` and it can't.
 
 ## 5. Parallel agents
 

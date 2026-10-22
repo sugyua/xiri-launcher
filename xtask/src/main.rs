@@ -30,7 +30,7 @@ commands:
 
 /// Packages that must build for wasm32-unknown-unknown: the pure core and the web app (which
 /// pulls in the shared egui UI).
-const WASM_PACKAGES: &[&str] = &["artcraft-launcher-core", "artcraft-launcher-web"];
+const WASM_PACKAGES: &[&str] = &["xiri-launcher-core", "xiri-launcher-web"];
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();

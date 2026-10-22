@@ -16,7 +16,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIR="$ROOT/assets/app-icon"
 BRAND="$ROOT/docs/brand"
 SVG="$BRAND/artcraft-mark.svg"
-ID="ai.storyteller.artcraft-launcher"
+ID="io.github.sugyua.xiri-launcher"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -32,7 +32,7 @@ FLAT="$SVG"
 
 render() { resvg -w "$2" -h "$2" "$1" "$3" </dev/null; }
 
-render "$MAC" 1024 "$DIR/artcraft-launcher-1024.png"
+render "$MAC" 1024 "$DIR/xiri-launcher-1024.png"
 
 # Linux hicolor theme.
 for s in 16 24 32 48 64 128 256 512; do
@@ -41,7 +41,7 @@ for s in 16 24 32 48 64 128 256 512; do
 done
 mkdir -p "$DIR/hicolor/scalable/apps"
 cp "$SVG" "$DIR/hicolor/scalable/apps/$ID.svg"
-cp "$SVG" "$DIR/artcraft-launcher.svg"
+cp "$SVG" "$DIR/xiri-launcher.svg"
 
 # Windows .ico.
 ICO_PNGS=()
@@ -49,7 +49,7 @@ for s in 16 20 24 32 40 48 64 128 256; do
   render "$FLAT" "$s" "$TMP/ico-$s.png"
   ICO_PNGS+=("$TMP/ico-$s.png")
 done
-(cd "$ROOT" && cargo run -q -p xtask -- ico "$DIR/artcraft-launcher.ico" "${ICO_PNGS[@]}")
+(cd "$ROOT" && cargo run -q -p xtask -- ico "$DIR/xiri-launcher.ico" "${ICO_PNGS[@]}")
 
 # macOS .icns.
 ICNS_PNGS=()
@@ -57,7 +57,7 @@ for s in 16 32 64 128 256 512 1024; do
   render "$MAC" "$s" "$TMP/icns-$s.png"
   ICNS_PNGS+=("$TMP/icns-$s.png")
 done
-(cd "$ROOT" && cargo run -q -p xtask -- icns "$DIR/artcraft-launcher.icns" "${ICNS_PNGS[@]}")
+(cd "$ROOT" && cargo run -q -p xtask -- icns "$DIR/xiri-launcher.icns" "${ICNS_PNGS[@]}")
 
 # Tray icons: the black mark is the macOS menu-bar template (44 px = 22 pt @2x; macOS tints it);
 # the blue one is for the Windows notification area and Linux/BSD status notifiers.

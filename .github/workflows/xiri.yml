@@ -1,0 +1,43 @@
+name: Xiri Windows
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Check
+        run: cargo check --workspace
+      - name: Core tests
+        run: cargo test -p xiri-launcher-core
+      - name: Native tests
+        run: cargo test -p xiri-launcher-native
+      - name: UI tests
+        run: cargo test -p xiri-launcher-ui-egui
+      - name: Wasm
+        run: cargo xtask wasm
+      - name: Build Windows
+        run: cargo build --release -p xiri-launcher
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory dist/xiri -Force | Out-Null
+          Copy-Item target/release/xiri-launcher.exe dist/xiri/
+          Copy-Item LICENSE-MIT,LICENSE-APACHE,NOTICE,README.md dist/xiri/
+          Compress-Archive -Path dist/xiri/* -DestinationPath dist/xiri-launcher-windows-x64-portable.zip
+          $hash = (Get-FileHash dist/xiri-launcher-windows-x64-portable.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  xiri-launcher-windows-x64-portable.zip" | Set-Content dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiri-launcher-windows-x64
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt

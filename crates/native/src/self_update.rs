@@ -1,4 +1,4 @@
-//! ArtCraft Launcher updating itself.
+//! Xiri Launcher updating itself.
 //!
 //! The new version is downloaded and verified like any Craft App, then swapped in the way this
 //! copy was installed. A small helper process waits for this launcher to exit, finishes anything
@@ -10,7 +10,7 @@
 //! |---|---|
 //! | macOS `.app` | copy the new bundle from the DMG over this one (fine while running), reopen it |
 //! | Windows MSI (per-user, any folder) | after exit, run the new MSI (it reinstalls into the same folder), then start the exe |
-//! | Windows portable zip | after exit, unzip over this folder (settings in `ArtCraftLauncherData` stay) |
+//! | Windows portable zip | after exit, unzip over this folder (settings in `XiriLauncherData` stay) |
 //! | Linux AppImage | rename the new AppImage over this one (fine while running), start it |
 //! | Linux `.deb` / `.rpm` | the system package manager, with the password prompt; then restart |
 //! | Linux Flatpak | reinstall the bundle with `--reinstall` via the host portal; then restart |
@@ -20,14 +20,14 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use artcraft_launcher_core::PackageKind;
-use artcraft_launcher_core::catalog::LAUNCHER;
-use artcraft_launcher_core::platform::{Platform, pick_asset};
-use artcraft_launcher_core::protocol::JobPhase;
-use artcraft_launcher_core::release::Release;
-use artcraft_launcher_core::version::{self, Version};
+use xiri_launcher_core::PackageKind;
+use xiri_launcher_core::catalog::LAUNCHER;
+use xiri_launcher_core::platform::{Platform, pick_asset};
+use xiri_launcher_core::protocol::JobPhase;
+use xiri_launcher_core::release::Release;
+use xiri_launcher_core::version::{self, Version};
 #[cfg(target_os = "macos")]
-use artcraft_launcher_core::{InstallSource, Installed};
+use xiri_launcher_core::{InstallSource, Installed};
 
 use crate::http::{Http, Stop};
 use crate::install::{self, Job};
@@ -37,7 +37,7 @@ use crate::process;
 /// How this running launcher was installed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Install {
-    /// The `ArtCraft Launcher.app` bundle.
+    /// The `Xiri Launcher.app` bundle.
     MacApp(PathBuf),
     /// The per-user Windows Installer package; the exe.
     Msi(PathBuf),
@@ -66,7 +66,7 @@ impl Install {
 
 /// Makes an installed copy believe it's this version, to try the self-update against the current
 /// release. The restart helper drops it, so it lasts one run.
-const PRETEND_VAR: &str = "ARTCRAFT_LAUNCHER_PRETEND_VERSION";
+const PRETEND_VAR: &str = "XIRI_LAUNCHER_PRETEND_VERSION";
 
 /// The version this launcher counts as (see [`PRETEND_VAR`]).
 pub fn current_version() -> Option<Version> {
@@ -112,19 +112,19 @@ fn detect(exe: &Path) -> Option<Install> {
         return Some(Install::Portable(exe.to_path_buf()));
     }
     // The MSI installs per user, into the folder chosen in its wizard (which it records in the
-    // registry) or by default %LOCALAPPDATA%\Programs\ArtCraft Launcher.
+    // registry) or by default %LOCALAPPDATA%\Programs\Xiri Launcher.
     let canonical = |p: PathBuf| p.canonicalize().unwrap_or(p);
     let recorded = msi_install_dir().map(canonical);
     let default = dirs::data_local_dir().map(|d| canonical(d.join("Programs").join(LAUNCHER.name)));
     [recorded, default].into_iter().flatten().any(|d| d == dir).then(|| Install::Msi(exe.to_path_buf()))
 }
 
-/// The folder the MSI installed into, as it records it (`packaging/windows/artcraft-launcher.wxs`).
+/// The folder the MSI installed into, as it records it (`packaging/windows/xiri-launcher.wxs`).
 #[cfg(windows)]
 fn msi_install_dir() -> Option<PathBuf> {
     use winreg::RegKey;
     use winreg::enums::HKEY_CURRENT_USER;
-    let key = RegKey::predef(HKEY_CURRENT_USER).open_subkey(r"Software\Learning Machines LLC\ArtCraft Launcher").ok()?;
+    let key = RegKey::predef(HKEY_CURRENT_USER).open_subkey(r"Software\Learning Machines LLC\Xiri Launcher").ok()?;
     let dir: String = key.get_value("InstallDir").ok()?;
     let dir = dir.trim();
     (!dir.is_empty()).then(|| PathBuf::from(dir))
@@ -153,7 +153,7 @@ fn detect(exe: &Path) -> Option<Install> {
         return Some(Install::Package(PackageKind::Rpm, exe.to_path_buf()));
     }
     // A pacman install of the launcher. We detect the release's own Arch package (by bundle id).
-    // AUR builds (`artcraft-launcher`, `artcraft-launcher-bin`, `artcraft-launcher-git`) are left to
+    // AUR builds (`xiri-launcher`, `xiri-launcher-bin`, `xiri-launcher-git`) are left to
     // pacman and the AUR helper.
     if crate::detect::linux::has_pacman_db() && process::capture("pacman", &["-Q", &LAUNCHER.bundle_id()], t).is_some() {
         return Some(Install::Package(PackageKind::ArchPkg, exe.to_path_buf()));
@@ -193,7 +193,7 @@ fn from_bundle() -> bool {
 }
 
 /// Flatpak names a bundle's origin after the last part of the app id, numbered when that name is
-/// taken: `artcraft-launcher-origin`, `artcraft-launcher1-origin`, …
+/// taken: `xiri-launcher-origin`, `xiri-launcher1-origin`, …
 #[cfg(target_os = "linux")]
 fn is_bundle_origin(origin: &str) -> bool {
     origin.strip_prefix(LAUNCHER.id).and_then(|rest| rest.strip_suffix("-origin")).is_some_and(|n| n.bytes().all(|b| b.is_ascii_digit()))
@@ -221,10 +221,10 @@ pub fn update(
     if let (Some(rel_v), Some(cur_v)) = (release.version.as_ref(), current_version().as_ref())
         && !version::is_newer(rel_v, cur_v)
     {
-        return Err(format!("ArtCraft Launcher {} is not newer than currently running version {}", release.version_label(), cur_v));
+        return Err(format!("Xiri Launcher {} is not newer than currently running version {}", release.version_label(), cur_v));
     }
     let (asset, _) = pick_asset(release, &[LAUNCHER.id], platform, &[install.kind()])
-        .ok_or_else(|| format!("ArtCraft Launcher {} has no {} for {}", release.version_label(), install.kind().label(), platform.label()))?;
+        .ok_or_else(|| format!("Xiri Launcher {} has no {} for {}", release.version_label(), install.kind().label(), platform.label()))?;
     let asset = asset.clone();
     let mut job = Job { http, paths, stop, phase, install_locations: &Default::default(), replace: false };
     let file = install::download(release, &asset, &mut job)?;
@@ -278,7 +278,7 @@ pub fn update(
             #[allow(unreachable_patterns)]
             _ => {
                 let _ = (pid, &file);
-                Err("this copy of ArtCraft Launcher can't update itself; download the new version instead".into())
+                Err("this copy of Xiri Launcher can't update itself; download the new version instead".into())
             }
         }
     })();
@@ -392,7 +392,7 @@ fn relaunch_flatpak_after_exit() -> Result<(), String> {
             id,
         ),
         // Without either, starting it again could only meet the old copy still running.
-        (None, None) => return Err("ArtCraft Launcher is updated; quit and reopen it to start the new version".into()),
+        (None, None) => return Err("Xiri Launcher is updated; quit and reopen it to start the new version".into()),
     };
     let script = format!("({wait_clause}) &");
     let app_id = LAUNCHER.bundle_id();
@@ -509,7 +509,7 @@ pub fn finish(args: &[OsString]) -> Option<Result<(), String>> {
 #[cfg_attr(not(windows), allow(dead_code))]
 fn launcher_paths(exe: &Path) -> Result<Paths, String> {
     match exe.parent() {
-        Some(dir) if dir.join("portable.txt").is_file() => Ok(Paths::under(&dir.join("ArtCraftLauncherData"))),
+        Some(dir) if dir.join("portable.txt").is_file() => Ok(Paths::under(&dir.join("XiriLauncherData"))),
         _ => Paths::new(),
     }
 }
@@ -558,7 +558,7 @@ fn same_cache_as_helper(paths: &Paths, exe: &Path) -> Result<(), String> {
     if theirs.is_some() && theirs == canonical(&paths.cache) {
         Ok(())
     } else {
-        Err(format!("ArtCraft Launcher can't update itself while it keeps its files in {}; download the new version instead", paths.cache.display()))
+        Err(format!("Xiri Launcher can't update itself while it keeps its files in {}; download the new version instead", paths.cache.display()))
     }
 }
 
@@ -568,9 +568,9 @@ fn same_cache_as_helper(paths: &Paths, exe: &Path) -> Result<(), String> {
 #[cfg(windows)]
 fn signed_like(reference: &Path, file: &Path) -> Result<(), String> {
     let publisher = |path: &Path| verifysign::verify_file(path).map(|signature| signature.subject_name());
-    let ours = publisher(reference).map_err(|e| format!("this copy of ArtCraft Launcher isn't signed ({e}), so it doesn't install updates"))?;
+    let ours = publisher(reference).map_err(|e| format!("this copy of Xiri Launcher isn't signed ({e}), so it doesn't install updates"))?;
     let theirs = publisher(file).map_err(|e| format!("{} isn't signed ({e})", file.display()))?;
-    if ours == theirs { Ok(()) } else { Err(format!("{} isn't signed by ArtCraft Launcher's publisher", file.display())) }
+    if ours == theirs { Ok(()) } else { Err(format!("{} isn't signed by Xiri Launcher's publisher", file.display())) }
 }
 
 /// Whether `file` is a Windows program or library (it starts with the `MZ` header), whatever its
@@ -587,7 +587,7 @@ fn is_program(file: &Path) -> bool {
 /// that installation's cache. Anything else is refused before the helper runs or starts a file.
 #[cfg(windows)]
 fn check_helper(me: &Path, paths: &Paths, exe: &Path, step: &Finish) -> Result<(), String> {
-    let refused = || "the update helper only finishes ArtCraft Launcher's own update".to_string();
+    let refused = || "the update helper only finishes Xiri Launcher's own update".to_string();
     let canonical = |p: &Path| p.canonicalize().map_err(|_| refused());
     let cache = canonical(&paths.cache)?;
     if canonical(me.parent().ok_or_else(refused)?)? != cache.join(HELPER_DIR) {
@@ -625,7 +625,7 @@ fn run_step(reference: &Path, pid: u32, exe: &Path, step: &Finish, wait: std::ti
             },
         }
     } else {
-        Err("ArtCraft Launcher was still running after a minute, so the update wasn't installed".into())
+        Err("Xiri Launcher was still running after a minute, so the update wasn't installed".into())
     };
     match step {
         Finish::Msi(msi) => {
@@ -664,10 +664,10 @@ mod tests {
     /// apostrophes included, and nothing that is incomplete or unknown.
     #[test]
     fn the_update_helper_reads_back_its_arguments() {
-        let exe = Path::new(r"C:\Users\O'Brien\AppData\Local\Programs\ArtCraft Launcher\artcraft-launcher.exe");
-        let msi = Finish::Msi(PathBuf::from(r"C:\Users\O'Brien\AppData\Local\ArtCraft Launcher\cache\artcraft-launcher-0.7.0-windows-x64.msi"));
+        let exe = Path::new(r"C:\Users\O'Brien\AppData\Local\Programs\Xiri Launcher\xiri-launcher.exe");
+        let msi = Finish::Msi(PathBuf::from(r"C:\Users\O'Brien\AppData\Local\Xiri Launcher\cache\xiri-launcher-0.7.0-windows-x64.msi"));
         let portable =
-            Finish::Portable { zip: PathBuf::from(r"D:\Tools\x 1.zip"), tmp: PathBuf::from(r"D:\Tools\ArtCraftLauncherData\cache\launcher-update") };
+            Finish::Portable { zip: PathBuf::from(r"D:\Tools\x 1.zip"), tmp: PathBuf::from(r"D:\Tools\XiriLauncherData\cache\launcher-update") };
         for finish in [msi, portable] {
             let args = helper_args(4242, exe, &finish);
             assert_eq!(args.first().map(OsString::as_os_str), Some(std::ffi::OsStr::new(FINISH_FLAG)));
@@ -705,17 +705,17 @@ mod tests {
     fn a_portable_update_replaces_the_launcher_after_it_exits() {
         use std::io::Write;
         let dir = tempfile::tempdir().unwrap();
-        let folder = dir.path().join("ArtCraft Launcher");
-        std::fs::create_dir_all(folder.join("ArtCraftLauncherData")).unwrap();
-        std::fs::write(folder.join("artcraft-launcher.exe"), "0.1.0").unwrap();
+        let folder = dir.path().join("Xiri Launcher");
+        std::fs::create_dir_all(folder.join("XiriLauncherData")).unwrap();
+        std::fs::write(folder.join("xiri-launcher.exe"), "0.1.0").unwrap();
         std::fs::write(folder.join("portable.txt"), "").unwrap();
-        std::fs::write(folder.join("ArtCraftLauncherData").join("settings.json"), "{}").unwrap();
-        let zip = dir.path().join("artcraft-launcher-0.2.0-windows-x64-portable.zip");
+        std::fs::write(folder.join("XiriLauncherData").join("settings.json"), "{}").unwrap();
+        let zip = dir.path().join("xiri-launcher-0.2.0-windows-x64-portable.zip");
         let mut writer = zip::ZipWriter::new(std::fs::File::create(&zip).unwrap());
         let signed_exe = std::fs::read(system_program("cmd.exe")).unwrap();
         for (name, body) in [
-            ("artcraft-launcher-0.2.0-windows-x64-portable/artcraft-launcher.exe", signed_exe.as_slice()),
-            ("artcraft-launcher-0.2.0-windows-x64-portable/portable.txt", b"".as_slice()),
+            ("xiri-launcher-0.2.0-windows-x64-portable/xiri-launcher.exe", signed_exe.as_slice()),
+            ("xiri-launcher-0.2.0-windows-x64-portable/portable.txt", b"".as_slice()),
         ] {
             writer.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
             writer.write_all(body).unwrap();
@@ -725,7 +725,7 @@ mod tests {
         let step = Finish::Portable { zip: zip.clone(), tmp: tmp.clone() };
 
         let mut old = std::process::Command::new("ping").args(["-n", "3", "127.0.0.1"]).stdout(std::process::Stdio::null()).spawn().unwrap();
-        let exe = folder.join("artcraft-launcher.exe");
+        let exe = folder.join("xiri-launcher.exe");
         let helper = {
             let (exe, step, pid) = (exe.clone(), step.clone(), old.id());
             std::thread::spawn(move || run_step(&system_program("cmd.exe"), pid, &exe, &step, std::time::Duration::from_secs(30)))
@@ -735,8 +735,8 @@ mod tests {
         old.wait().unwrap();
         helper.join().unwrap().unwrap();
         assert_eq!(std::fs::read(&exe).unwrap(), signed_exe);
-        assert_eq!(std::fs::read_to_string(folder.join("ArtCraftLauncherData").join("settings.json")).unwrap(), "{}");
-        assert!(!folder.join("artcraft-launcher-0.2.0-windows-x64-portable").exists(), "the zip's folder must not be nested in the launcher's");
+        assert_eq!(std::fs::read_to_string(folder.join("XiriLauncherData").join("settings.json")).unwrap(), "{}");
+        assert!(!folder.join("xiri-launcher-0.2.0-windows-x64-portable").exists(), "the zip's folder must not be nested in the launcher's");
         assert!(!zip.exists() && !tmp.exists(), "the download and the staging folder are removed");
     }
 
@@ -746,18 +746,18 @@ mod tests {
     #[test]
     fn the_update_helper_refuses_anything_but_the_launchers_own_update() {
         let dir = tempfile::tempdir().unwrap();
-        let folder = dir.path().join("ArtCraft Launcher");
+        let folder = dir.path().join("Xiri Launcher");
         std::fs::create_dir_all(&folder).unwrap();
-        let exe = folder.join("artcraft-launcher.exe");
+        let exe = folder.join("xiri-launcher.exe");
         std::fs::write(&exe, "0.1.0").unwrap();
         std::fs::write(folder.join("portable.txt"), "").unwrap();
         let paths = Paths::under(dir.path());
         let cache = paths.cache.clone();
         std::fs::create_dir_all(paths.downloads()).unwrap();
         std::fs::create_dir_all(cache.join(HELPER_DIR)).unwrap();
-        let me = cache.join(HELPER_DIR).join("artcraft-launcher.exe");
+        let me = cache.join(HELPER_DIR).join("xiri-launcher.exe");
         std::fs::write(&me, "helper").unwrap();
-        let zip = paths.downloads().join("artcraft-launcher-0.2.0-windows-x64-portable.zip");
+        let zip = paths.downloads().join("xiri-launcher-0.2.0-windows-x64-portable.zip");
         std::fs::write(&zip, "zip").unwrap();
         let elsewhere = dir.path().join("elsewhere.zip");
         std::fs::write(&elsewhere, "zip").unwrap();
@@ -787,11 +787,11 @@ mod tests {
     #[test]
     fn the_helper_uses_the_portable_launchers_own_folders() {
         let dir = tempfile::tempdir().unwrap();
-        let exe = dir.path().join("artcraft-launcher.exe");
+        let exe = dir.path().join("xiri-launcher.exe");
         std::fs::write(dir.path().join("portable.txt"), "").unwrap();
         let paths = launcher_paths(&exe).unwrap();
-        assert_eq!(paths.cache, dir.path().join("ArtCraftLauncherData").join("cache"));
-        assert_eq!(paths.data, dir.path().join("ArtCraftLauncherData").join("data"));
+        assert_eq!(paths.cache, dir.path().join("XiriLauncherData").join("cache"));
+        assert_eq!(paths.data, dir.path().join("XiriLauncherData").join("data"));
     }
 
     /// The launcher quits for an update only when the helper finds the cache the update was
@@ -801,12 +801,12 @@ mod tests {
     #[test]
     fn a_launcher_whose_helper_looks_in_other_folders_does_not_quit_for_an_update() {
         let dir = tempfile::tempdir().unwrap();
-        let folder = dir.path().join("ArtCraft Launcher");
+        let folder = dir.path().join("Xiri Launcher");
         std::fs::create_dir_all(&folder).unwrap();
-        let exe = folder.join("artcraft-launcher.exe");
+        let exe = folder.join("xiri-launcher.exe");
         std::fs::write(&exe, "0.1.0").unwrap();
-        let own = Paths::under(&folder.join("ArtCraftLauncherData"));
-        let temporary = Paths::under(&dir.path().join("Temp").join("artcraft-launcher"));
+        let own = Paths::under(&folder.join("XiriLauncherData"));
+        let temporary = Paths::under(&dir.path().join("Temp").join("xiri-launcher"));
         for paths in [&own, &temporary] {
             std::fs::create_dir_all(paths.downloads()).unwrap();
         }
@@ -833,7 +833,7 @@ mod tests {
         assert!(just_updated_to(&paths, &release));
         // The helper refuses before this process has finished scheduling it.
         mark_installed(&paths, &release);
-        record_failure(&paths, "the update helper only finishes ArtCraft Launcher's own update");
+        record_failure(&paths, "the update helper only finishes Xiri Launcher's own update");
         assert!(unmark_unless_scheduled(&paths, Ok(())).is_ok());
         assert!(!just_updated_to(&paths, &release), "a failure the helper recorded must stay recorded");
     }
@@ -858,9 +858,9 @@ mod tests {
     #[test]
     fn a_launcher_that_keeps_running_is_not_replaced() {
         let dir = tempfile::tempdir().unwrap();
-        let exe = dir.path().join("artcraft-launcher.exe");
+        let exe = dir.path().join("xiri-launcher.exe");
         std::fs::write(&exe, "0.1.0").unwrap();
-        let msi = dir.path().join("artcraft-launcher-0.2.0-windows-x64.msi");
+        let msi = dir.path().join("xiri-launcher-0.2.0-windows-x64.msi");
         std::fs::write(&msi, "not a package").unwrap();
         let running = std::process::id();
         let started = std::time::Instant::now();
@@ -904,7 +904,7 @@ mod tests {
     #[test]
     fn an_unsigned_launcher_refuses_to_update_before_it_quits() {
         let dir = tempfile::tempdir().unwrap();
-        let msi = dir.path().join("artcraft-launcher-0.2.0-windows-x64.msi");
+        let msi = dir.path().join("xiri-launcher-0.2.0-windows-x64.msi");
         std::fs::write(&msi, "not a package").unwrap();
         for install in [Install::Msi(system_program("msiexec.exe")), Install::Portable(system_program("msiexec.exe"))] {
             let error = windows_precheck(&install, &Paths::under(dir.path()), &msi).unwrap_err();
@@ -917,9 +917,9 @@ mod tests {
     #[test]
     fn an_unsigned_msi_is_never_run() {
         let dir = tempfile::tempdir().unwrap();
-        let exe = dir.path().join("artcraft-launcher.exe");
+        let exe = dir.path().join("xiri-launcher.exe");
         std::fs::write(&exe, "0.1.0").unwrap();
-        let msi = dir.path().join("artcraft-launcher-0.2.0-windows-x64.msi");
+        let msi = dir.path().join("xiri-launcher-0.2.0-windows-x64.msi");
         std::fs::write(&msi, "not a package").unwrap();
         let error =
             run_step(&system_program("cmd.exe"), exited_pid(), &exe, &Finish::Msi(msi.clone()), std::time::Duration::from_secs(5)).unwrap_err();
@@ -934,18 +934,18 @@ mod tests {
     fn an_unsigned_program_in_the_portable_zip_is_not_installed() {
         use std::io::Write;
         let dir = tempfile::tempdir().unwrap();
-        let folder = dir.path().join("ArtCraft Launcher");
+        let folder = dir.path().join("Xiri Launcher");
         std::fs::create_dir_all(&folder).unwrap();
-        let exe = folder.join("artcraft-launcher.exe");
+        let exe = folder.join("xiri-launcher.exe");
         std::fs::write(&exe, "0.1.0").unwrap();
-        let zip = dir.path().join("artcraft-launcher-0.2.0-windows-x64-portable.zip");
+        let zip = dir.path().join("xiri-launcher-0.2.0-windows-x64-portable.zip");
         let mut writer = zip::ZipWriter::new(std::fs::File::create(&zip).unwrap());
-        writer.start_file("artcraft-launcher-0.2.0-windows-x64-portable/README.md", zip::write::SimpleFileOptions::default()).unwrap();
-        writer.write_all(b"# ArtCraft Launcher").unwrap();
-        writer.start_file("artcraft-launcher-0.2.0-windows-x64-portable/artcraft-launcher.exe", zip::write::SimpleFileOptions::default()).unwrap();
+        writer.start_file("xiri-launcher-0.2.0-windows-x64-portable/README.md", zip::write::SimpleFileOptions::default()).unwrap();
+        writer.write_all(b"# Xiri Launcher").unwrap();
+        writer.start_file("xiri-launcher-0.2.0-windows-x64-portable/xiri-launcher.exe", zip::write::SimpleFileOptions::default()).unwrap();
         writer.write_all(&std::fs::read(system_program("cmd.exe")).unwrap()).unwrap();
         // An unsigned program under a harmless name.
-        writer.start_file("artcraft-launcher-0.2.0-windows-x64-portable/notes.txt", zip::write::SimpleFileOptions::default()).unwrap();
+        writer.start_file("xiri-launcher-0.2.0-windows-x64-portable/notes.txt", zip::write::SimpleFileOptions::default()).unwrap();
         writer.write_all(&std::fs::read(std::env::current_exe().unwrap()).unwrap()).unwrap();
         writer.finish().unwrap();
         let tmp = dir.path().join("cache").join(PORTABLE_STAGING);
@@ -964,18 +964,18 @@ mod tests {
         use std::io::Write;
         for launcher in [None, Some(b"not a Windows program".as_slice()), Some(b"".as_slice())] {
             let dir = tempfile::tempdir().unwrap();
-            let folder = dir.path().join("ArtCraft Launcher");
-            std::fs::create_dir_all(folder.join("ArtCraftLauncherData")).unwrap();
-            let exe = folder.join("artcraft-launcher.exe");
+            let folder = dir.path().join("Xiri Launcher");
+            std::fs::create_dir_all(folder.join("XiriLauncherData")).unwrap();
+            let exe = folder.join("xiri-launcher.exe");
             std::fs::write(&exe, "old launcher").unwrap();
-            let settings = folder.join("ArtCraftLauncherData/settings.json");
+            let settings = folder.join("XiriLauncherData/settings.json");
             std::fs::write(&settings, "settings").unwrap();
             let zip = dir.path().join("update.zip");
             let mut writer = zip::ZipWriter::new(std::fs::File::create(&zip).unwrap());
             writer.start_file("launcher/README.md", zip::write::SimpleFileOptions::default()).unwrap();
             writer.write_all(b"new readme").unwrap();
             if let Some(body) = launcher {
-                writer.start_file("launcher/artcraft-launcher.exe", zip::write::SimpleFileOptions::default()).unwrap();
+                writer.start_file("launcher/xiri-launcher.exe", zip::write::SimpleFileOptions::default()).unwrap();
                 writer.write_all(body).unwrap();
             }
             writer.finish().unwrap();
@@ -997,18 +997,18 @@ mod tests {
     fn a_portable_update_that_fails_part_way_puts_the_old_files_back() {
         use std::io::Write;
         let dir = tempfile::tempdir().unwrap();
-        let folder = dir.path().join("ArtCraft Launcher");
+        let folder = dir.path().join("Xiri Launcher");
         // A folder where the zip has a file: copying it there fails after the exe was replaced.
         std::fs::create_dir_all(folder.join("NOTICE")).unwrap();
-        let exe = folder.join("artcraft-launcher.exe");
+        let exe = folder.join("xiri-launcher.exe");
         std::fs::write(&exe, "0.1.0").unwrap();
-        let zip = dir.path().join("artcraft-launcher-0.2.0-windows-x64-portable.zip");
+        let zip = dir.path().join("xiri-launcher-0.2.0-windows-x64-portable.zip");
         let mut writer = zip::ZipWriter::new(std::fs::File::create(&zip).unwrap());
         let signed_exe = std::fs::read(system_program("cmd.exe")).unwrap();
         for (name, body) in [
-            ("artcraft-launcher-0.2.0-windows-x64-portable/artcraft-launcher.exe", signed_exe.as_slice()),
-            ("artcraft-launcher-0.2.0-windows-x64-portable/README.md", b"# ArtCraft Launcher".as_slice()),
-            ("artcraft-launcher-0.2.0-windows-x64-portable/NOTICE", b"notice".as_slice()),
+            ("xiri-launcher-0.2.0-windows-x64-portable/xiri-launcher.exe", signed_exe.as_slice()),
+            ("xiri-launcher-0.2.0-windows-x64-portable/README.md", b"# Xiri Launcher".as_slice()),
+            ("xiri-launcher-0.2.0-windows-x64-portable/NOTICE", b"notice".as_slice()),
         ] {
             writer.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
             writer.write_all(body).unwrap();
@@ -1083,33 +1083,33 @@ mod tests {
         assert!(marker.exists(), "never started after the old launcher exited");
     }
 
-    /// A real disk image: the new `ArtCraft Launcher.app` replaces the old one in place.
+    /// A real disk image: the new `Xiri Launcher.app` replaces the old one in place.
     #[cfg(target_os = "macos")]
     #[test]
     fn the_new_bundle_replaces_the_running_one() {
         fn bundle(at: &Path, version: &str) {
-            let contents = at.join("ArtCraft Launcher.app/Contents");
+            let contents = at.join("Xiri Launcher.app/Contents");
             std::fs::create_dir_all(contents.join("MacOS")).unwrap();
             std::fs::write(
                 contents.join("Info.plist"),
                 format!(
                     "<?xml version=\"1.0\" encoding=\"UTF-8\"?><plist version=\"1.0\"><dict>\
-                     <key>CFBundleIdentifier</key><string>ai.storyteller.artcraft-launcher</string>\
+                     <key>CFBundleIdentifier</key><string>io.github.sugyua.xiri-launcher</string>\
                      <key>CFBundleShortVersionString</key><string>{version}</string></dict></plist>"
                 ),
             )
             .unwrap();
-            std::fs::write(contents.join("MacOS/ArtCraft Launcher"), version).unwrap();
+            std::fs::write(contents.join("MacOS/Xiri Launcher"), version).unwrap();
         }
         let dir = tempfile::tempdir().unwrap();
         let apps = dir.path().join("Applications");
         bundle(&apps, "0.1.0");
         let src = dir.path().join("src");
         bundle(&src, "0.2.0");
-        let dmg = dir.path().join("artcraft-launcher-0.2.0-macos-universal.dmg");
+        let dmg = dir.path().join("xiri-launcher-0.2.0-macos-universal.dmg");
         let one_at_a_time = install::macos::DISK_IMAGES.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let ok = std::process::Command::new("hdiutil")
-            .args(["create", "-quiet", "-format", "UDZO", "-volname", "ArtCraft Launcher 0.2.0", "-srcfolder"])
+            .args(["create", "-quiet", "-format", "UDZO", "-volname", "Xiri Launcher 0.2.0", "-srcfolder"])
             .arg(&src)
             .arg(&dmg)
             .status()
@@ -1117,16 +1117,16 @@ mod tests {
             .success();
         assert!(ok, "hdiutil create failed");
         drop(one_at_a_time);
-        let current = apps.join("ArtCraft Launcher.app");
+        let current = apps.join("Xiri Launcher.app");
         let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None };
         // An unsigned test bundle: the signature check has its own tests in `install`.
         let expect = install::macos::Expect { team: None, version: None };
         let placed = install::macos::install_dmg(&LAUNCHER, &dmg, Some(&existing), None, false, &Paths::under(dir.path()), &expect).unwrap();
         assert_eq!(placed, current);
-        assert_eq!(std::fs::read_to_string(current.join("Contents/MacOS/ArtCraft Launcher")).unwrap(), "0.2.0");
+        assert_eq!(std::fs::read_to_string(current.join("Contents/MacOS/Xiri Launcher")).unwrap(), "0.2.0");
         assert_eq!(
             std::fs::read_dir(&apps).unwrap().map(|e| e.unwrap().file_name()).collect::<Vec<_>>(),
-            [std::ffi::OsString::from("ArtCraft Launcher.app")]
+            [std::ffi::OsString::from("Xiri Launcher.app")]
         );
     }
 
@@ -1139,23 +1139,23 @@ mod tests {
     #[test]
     fn the_launcher_picks_its_own_release_files() {
         let names = [
-            "artcraft-launcher-0.2.0-macos-universal.dmg",
-            "artcraft-launcher-0.2.0-windows-x64.msi",
-            "artcraft-launcher-0.2.0-windows-x64-portable.zip",
-            "artcraft-launcher-0.2.0-linux-x86_64.AppImage",
-            "artcraft-launcher-0.2.0-linux-x86_64.deb",
-            "artcraft-launcher-0.2.0-linux-x86_64.flatpak",
-            "artcraft-launcher-0.2.0-linux-x86_64.pkg.tar.zst",
-            "artcraft-launcher-web-0.2.0.zip",
+            "xiri-launcher-0.2.0-macos-universal.dmg",
+            "xiri-launcher-0.2.0-windows-x64.msi",
+            "xiri-launcher-0.2.0-windows-x64-portable.zip",
+            "xiri-launcher-0.2.0-linux-x86_64.AppImage",
+            "xiri-launcher-0.2.0-linux-x86_64.deb",
+            "xiri-launcher-0.2.0-linux-x86_64.flatpak",
+            "xiri-launcher-0.2.0-linux-x86_64.pkg.tar.zst",
+            "xiri-launcher-web-0.2.0.zip",
         ];
         let release = Release {
             assets: names
                 .iter()
-                .map(|n| artcraft_launcher_core::release::Asset { name: (*n).into(), size: 1, url: String::new(), sha256: None })
+                .map(|n| xiri_launcher_core::release::Asset { name: (*n).into(), size: 1, url: String::new(), sha256: None })
                 .collect(),
             ..Release::default()
         };
-        use artcraft_launcher_core::{Arch, Os};
+        use xiri_launcher_core::{Arch, Os};
         let pick = |os, kind| pick_asset(&release, &[LAUNCHER.id], Platform { os, arch: Arch::X64 }, &[kind]).map(|(a, _)| a.name.clone());
         assert_eq!(pick(Os::MacOs, Install::MacApp(PathBuf::new()).kind()).as_deref(), Some(names[0]));
         assert_eq!(pick(Os::Windows, Install::Msi(PathBuf::new()).kind()).as_deref(), Some(names[1]));
@@ -1177,8 +1177,8 @@ mod tests {
         let release = Release {
             version: version::parse("0.1.0"),
             tag: "v0.1.0".into(),
-            assets: vec![artcraft_launcher_core::release::Asset {
-                name: "artcraft-launcher-0.1.0-linux-x86_64.AppImage".into(),
+            assets: vec![xiri_launcher_core::release::Asset {
+                name: "xiri-launcher-0.1.0-linux-x86_64.AppImage".into(),
                 size: 1,
                 url: String::new(),
                 sha256: None,
@@ -1186,7 +1186,7 @@ mod tests {
             ..Release::default()
         };
         let install = Install::AppImage(dir.path().join("launcher.AppImage"));
-        use artcraft_launcher_core::{Arch, Os};
+        use xiri_launcher_core::{Arch, Os};
         let platform = Platform { os: Os::Linux, arch: Arch::X64 };
         let result = update(&install, &release, platform, &http, &paths, &stop, &mut phase, &last);
         assert!(result.is_err());
@@ -1196,11 +1196,11 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn parses_flatpak_metadata_for_restart() {
-        let info = "[Application]\nname=ai.storyteller.artcraft-launcher\n\n[Instance]\ninstance-id=155661136\n";
+        let info = "[Application]\nname=io.github.sugyua.xiri-launcher\n\n[Instance]\ninstance-id=155661136\n";
         assert_eq!(parse_flatpak_instance_id(info), Some("155661136".to_string()));
         assert_eq!(parse_flatpak_instance_id("no instance id here"), None);
 
-        let ps = "Instance   PID    Application\n155661136  842791 ai.storyteller.artcraft-launcher\n";
+        let ps = "Instance   PID    Application\n155661136  842791 io.github.sugyua.xiri-launcher\n";
         assert_eq!(parse_flatpak_host_pid(ps, "155661136"), Some(842791));
         assert_eq!(parse_flatpak_host_pid(ps, "999999999"), None);
     }
@@ -1209,9 +1209,9 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn only_a_per_user_install_updates_itself() {
-        let info = |path: &str| format!("[Application]\nname=ai.storyteller.artcraft-launcher\n\n[Instance]\ninstance-id=1\napp-path={path}\n");
-        assert!(parse_is_user_install(&info("/home/alice/.local/share/flatpak/app/ai.storyteller.artcraft-launcher/x86_64/stable/0a3de1c/files")));
-        assert!(!parse_is_user_install(&info("/var/lib/flatpak/app/ai.storyteller.artcraft-launcher/x86_64/stable/0a3de1c/files")));
+        let info = |path: &str| format!("[Application]\nname=io.github.sugyua.xiri-launcher\n\n[Instance]\ninstance-id=1\napp-path={path}\n");
+        assert!(parse_is_user_install(&info("/home/alice/.local/share/flatpak/app/io.github.sugyua.xiri-launcher/x86_64/stable/0a3de1c/files")));
+        assert!(!parse_is_user_install(&info("/var/lib/flatpak/app/io.github.sugyua.xiri-launcher/x86_64/stable/0a3de1c/files")));
         // `flatpak run --app-path=` mounts an empty /app.
         assert!(!parse_is_user_install(&info("")));
         // The key belongs to [Instance] only.
@@ -1224,11 +1224,11 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn only_a_bundle_origin_counts_as_the_release_bundle() {
-        assert!(is_bundle_origin("artcraft-launcher-origin"));
-        assert!(is_bundle_origin("artcraft-launcher2-origin"));
+        assert!(is_bundle_origin("xiri-launcher-origin"));
+        assert!(is_bundle_origin("xiri-launcher2-origin"));
         assert!(!is_bundle_origin("flathub"));
         assert!(!is_bundle_origin("flathub-beta"));
-        assert!(!is_bundle_origin("artcraft-launcher-beta-origin"));
+        assert!(!is_bundle_origin("xiri-launcher-beta-origin"));
         assert!(!is_bundle_origin("photocraft-origin"));
         assert!(!is_bundle_origin(""));
     }

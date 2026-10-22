@@ -93,7 +93,7 @@ fn fold_at(lines: &[Line<'_>]) -> Option<usize> {
 /// The address on a "**Full Changelog**: …" line, when it is a safe web link.
 fn full_changelog<'a>(line: &Line<'a>) -> Option<&'a str> {
     let Line::Text(text) = line else { return None };
-    text.strip_prefix("**Full Changelog**: ").map(str::trim).filter(|url| artcraft_launcher_core::release::safe_web_link(url))
+    text.strip_prefix("**Full Changelog**: ").map(str::trim).filter(|url| xiri_launcher_core::release::safe_web_link(url))
 }
 
 fn draw(ui: &mut Ui, line: &Line<'_>, t: &Tokens, scale: f32) {
@@ -109,7 +109,7 @@ fn draw(ui: &mut Ui, line: &Line<'_>, t: &Tokens, scale: f32) {
                 ui.spacing_mut().item_spacing.x = 4.0;
                 ui.label(RichText::new("•").color(t.faint));
                 ui.label(RichText::new(text).color(t.ink));
-                if let Some(url) = link.filter(|u| artcraft_launcher_core::release::safe_web_link(u)) {
+                if let Some(url) = link.filter(|u| xiri_launcher_core::release::safe_web_link(u)) {
                     let short = url.rsplit('/').next().map_or_else(|| tl!("link").to_string(), |n| format!("#{n}"));
                     ui.hyperlink_to(RichText::new(short).size(12.0 * scale), url);
                 }

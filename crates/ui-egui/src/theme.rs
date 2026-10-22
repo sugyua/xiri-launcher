@@ -125,7 +125,7 @@ impl Tokens {
     }
 
     /// An app's text colour (`--app-ink`): readable on this appearance's background.
-    pub fn app_ink(&self, app: &artcraft_launcher_core::CraftApp) -> Color32 {
+    pub fn app_ink(&self, app: &xiri_launcher_core::xiri::AppInfo) -> Color32 {
         rgb(if self.dark { app.ink_dark } else { app.ink_light })
     }
 }

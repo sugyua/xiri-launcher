@@ -3,7 +3,7 @@
 //! Pure functions over the tools' text output, so they're tested on every platform; only Linux
 //! runs the tools (`detect::linux`).
 
-use artcraft_launcher_core::{CraftApp, InstallSource, version};
+use xiri_launcher_core::{CraftApp, InstallSource, version};
 
 /// One installed package that belongs to a Craft App.
 #[derive(Clone, Debug, PartialEq, Eq)]

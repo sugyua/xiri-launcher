@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Xiri Launcher
+GenericName=App Launcher
+Comment=Install, update and launch the Xiri App Library
+Exec=xiri-launcher
+TryExec=xiri-launcher
+Icon=io.github.sugyua.xiri-launcher
+Terminal=false
+StartupNotify=true
+StartupWMClass=xiri-launcher
+Categories=Utility;PackageManager;
+Keywords=artcraft;craft;launcher;installer;updater;photocraft;filmcraft;apps;
