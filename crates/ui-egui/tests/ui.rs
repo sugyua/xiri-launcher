@@ -508,7 +508,7 @@ fn grid_shows_every_status_and_installs_on_click() {
     assert!(updated.iter().all(|l| l.starts_with("Last updated: Oct ") && l.ends_with(", 2026")), "{updated:?}");
     // The window has no title bar of its own here (the web build, and the tests).
     assert!(h.query_by_label("Close").is_none());
-    assert!(h.query_all_by_label_contains("Discord").count() >= 1); // the footer icon (the header has none)
+    assert_eq!(h.query_all_by_label_contains("Discord").count(), 0); // the footer icon (the header has none)
     assert!(h.query_by_label("Join the ArtCraft community on Discord").is_none(), "no Discord link in the header");
     assert!(h.query_all_by_label("Coming soon").count() >= 1);
     h.get_by_label_contains("48 MB of 131 MB");
@@ -803,15 +803,15 @@ fn every_table_column_sorts_both_ways() {
 }
 
 #[test]
-fn settings_link_to_discord() {
+fn settings_link_to_the_authors_github() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
     h.get_by_label("Settings").click();
     h.run_steps(4);
     snapshot(&mut h, "settings-dark");
-    h.get_by_label("Questions, ideas and news from the ArtCraft team");
+    h.get_by_label("Programs and games by sugyua");
     // The footer icon and the button in Settings.
-    assert!(h.query_all_by_label_contains("Discord").count() >= 2);
+    assert_eq!(h.query_all_by_label_contains("Discord").count(), 0);
 }
 
 #[test]
@@ -844,12 +844,12 @@ fn links_to_the_website_github_and_each_apps_pages() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
     // Footer: website, GitHub and Discord.
-    for label in ["Website", "GitHub", "Discord"] {
+    for label in ["GitHub"] {
         assert!(h.query_all_by_label(label).count() >= 1, "{label}");
     }
     // Cards: every app links to its repo and to its own page on getartcraft.com (plus the footer's).
     let shown_cards = h.query_all_by_label("GitHub").count() - 1;
-    let shown_sites = h.query_all_by_label("Website").count() - 1;
+    let shown_sites = h.query_all_by_label("Website").count();
     assert!(shown_cards >= 13, "{shown_cards}");
     assert_eq!(shown_sites, 0, "the cards only link to GitHub; the website is the footer's icon");
     // The table's … menu has the app's website and GitHub repo.
@@ -859,7 +859,7 @@ fn links_to_the_website_github_and_each_apps_pages() {
     h.run_steps(3);
     h.get_by_label("GitHub repository");
     // The footer's Website link and WordCraft's now-live one in the menu.
-    assert!(h.query_all_by_label_contains("Website").count() >= 2);
+    assert!(h.query_all_by_label_contains("Website").count() >= 1);
 }
 
 /// Clicks the `n`th widget labelled `label` and returns the URL the app asked to open.
@@ -892,20 +892,13 @@ fn all_opened(h: &mut Harness<'_, Option<LauncherUi>>, label: &str) -> Vec<Strin
 fn links_open_the_right_pages() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
-    assert_eq!(click_opens(&mut h, "Discord").as_deref(), Some("https://discord.gg/artcraft"));
+    assert!(click_opens(&mut h, "Discord").is_none());
     // The footer's ArtCraft links and each card's own pages.
     let github = all_opened(&mut h, "GitHub");
-    assert!(github.contains(&"https://github.com/storytold".to_string()), "{github:?}");
+    assert!(github.contains(&"https://github.com/sugyua".to_string()), "{github:?}");
     assert!(github.contains(&"https://github.com/storytold/photocraft".to_string()), "{github:?}");
-    let sites = all_opened(&mut h, "Website");
-    assert!(sites.contains(&"https://getartcraft.com".to_string()), "{sites:?}");
-    assert_eq!(sites, vec!["https://getartcraft.com".to_string()], "{sites:?}");
-    // Social icons in the footer.
-    assert_eq!(click_opens(&mut h, "X").as_deref(), Some("https://x.com/get_artcraft"));
-    assert_eq!(click_opens(&mut h, "YouTube").as_deref(), Some("https://www.youtube.com/@OfficialArtcraftStudios"));
-    assert_eq!(click_opens(&mut h, "TikTok").as_deref(), Some("https://www.tiktok.com/@artcraft.studios"));
-    assert_eq!(click_opens(&mut h, "Instagram").as_deref(), Some("https://www.instagram.com/officialartcraftstudios"));
-    assert_eq!(click_opens(&mut h, "LinkedIn").as_deref(), Some("https://www.linkedin.com/company/artcraft-ai"));
+    assert!(all_opened(&mut h, "Website").is_empty());
+    for label in ["X", "YouTube", "TikTok", "Instagram", "LinkedIn"] { assert!(click_opens(&mut h,label).is_none()); }
     // The … menu.
     h.get_all_by_label("…").next().unwrap().click();
     h.run_steps(3);
@@ -915,10 +908,10 @@ fn links_open_the_right_pages() {
 }
 
 #[test]
-fn discord_link_opens_app_when_discord_is_installed() {
+fn custom_host_cannot_restore_removed_discord_promotions() {
     let (mut h, _) = harness_with_discord(Some(xiri_launcher_core::catalog::DISCORD_APP_URL));
     h.run_steps(6);
-    assert_eq!(click_opens(&mut h, "Discord").as_deref(), Some("discord://-/invite/artcraft"));
+    assert!(click_opens(&mut h, "Discord").is_none());
 }
 
 #[test]
@@ -1550,10 +1543,10 @@ fn the_rate_limit_notice_never_runs_under_the_footer_links() {
         assert!(notice.width() >= 120.0 && notice.right() <= width, "{width}: notice {notice:?}");
         // Everything on the footer's right: the website, GitHub and Discord icons and the social icons.
         let mut right = Vec::new();
-        for label in ["Website", "GitHub", "Discord", "X", "YouTube", "TikTok", "Instagram", "LinkedIn"] {
+        for label in ["GitHub"] {
             right.extend(h.query_all_by_label(label).map(|n| n.rect()).filter(|r| (r.center().y - notice.center().y).abs() < 12.0));
         }
-        assert_eq!(right.len(), 8, "{width}: {right:?}");
+        assert_eq!(right.len(), 1, "{width}: {right:?}");
         assert!(h.query_by_label_contains("Installing for").is_none(), "{width}: the footer no longer names the platform");
         for r in right {
             assert!(!r.intersects(notice), "{width}: notice {notice:?} overlaps {r:?}");

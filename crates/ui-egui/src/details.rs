@@ -215,11 +215,11 @@ impl LauncherUi {
     /// The apps before and after `id` in the order the grid shows them (wrapping round), among
     /// those that have a page.
     fn neighbour_apps(&self, id: &str) -> (Option<String>, Option<String>) {
-        let mut ids: Vec<&str> = self.visible_ids().into_iter().filter(|i| AppDetails::by_id(i).is_some()).collect();
-        if !ids.contains(&id) {
-            ids = xiri_launcher_core::SUITE.iter().map(|a| a.id).filter(|i| AppDetails::by_id(i).is_some()).collect();
+        let mut ids: Vec<String> = self.visible_ids().into_iter().filter(|i| AppDetails::by_id(i).is_some()).collect();
+        if !ids.iter().any(|item|item==id) {
+            ids = xiri_launcher_core::SUITE.iter().map(|a| a.id.to_string()).filter(|i| AppDetails::by_id(i).is_some()).collect();
         }
-        let Some(at) = ids.iter().position(|i| *i == id) else { return (None, None) };
+        let Some(at) = ids.iter().position(|i| i == id) else { return (None, None) };
         if ids.len() < 2 {
             return (None, None);
         }

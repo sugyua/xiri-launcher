@@ -168,6 +168,10 @@ impl LauncherUi {
             ui.add_space(14.0);
         }
         self.announcements(ui);
+        if let Some(warning) = &self.catalog_warning {
+            ui.label(RichText::new(warning).color(t.warn));
+            ui.add_space(8.0);
+        }
         let updates = self.count(Filter::Updates);
         let mut compact = false;
         ui.horizontal(|ui| {

@@ -26,10 +26,14 @@ struct Shared {
 }
 impl Shared {
     fn emit(&self, event: Event) { self.events.lock().unwrap_or_else(PoisonError::into_inner).push(event); (self.wake)(); }
-    fn save_installed(&self) -> Result<(), String> {
-        let value = self.installed.lock().unwrap_or_else(PoisonError::into_inner);
-        let bytes = serde_json::to_vec_pretty(&*value).map_err(|e| e.to_string())?;
-        crate::paths::write_atomic(&self.root.join("installed-xiri.json"), &bytes)
+    fn commit_local(&self, id: &str, local: Option<LocalApp>) -> Result<(), String> {
+        let mut installed = self.installed.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut next = installed.clone();
+        match local {Some(local)=>{next.insert(id.into(),local);},None=>{next.remove(id);}}
+        let bytes = serde_json::to_vec_pretty(&next).map_err(|e| e.to_string())?;
+        crate::paths::write_atomic(&self.root.join("installed-xiri.json"), &bytes)?;
+        *installed = next;
+        Ok(())
     }
     fn app(&self, id: &str) -> Option<AppInfo> {
         self.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.iter().find(|a| a.id == id).cloned()
@@ -40,8 +44,9 @@ impl Shared {
         match processes.get_mut(id) { Some(child) => !matches!(child.try_wait(), Ok(Some(_))), None => false }
     }
     fn detected(&self) {
-        let apps = self.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone();
+        let mut apps = self.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone();
         let installed = self.installed.lock().unwrap_or_else(PoisonError::into_inner);
+        for local in installed.values() { if !apps.iter().any(|a| a.id == local.app.id) { apps.push(local.app.clone()); } }
         for app in apps { self.emit(Event::Detected { app: app.id.clone(), installed: installed.get(&app.id).filter(|l| Path::new(&l.installed.location).is_file()).map(|l| l.installed.clone()) }); }
     }
     fn catalog_event(&self, warning: Option<String>) {
@@ -56,7 +61,8 @@ impl Shared {
 
 pub struct XiriBackend { shared: Arc<Shared> }
 fn read_json<T: serde::de::DeserializeOwned + Default>(path: &Path) -> T {
-    std::fs::read(path).ok().filter(|b| b.len() <= 16 * 1024 * 1024).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+    use std::io::Read;
+    std::fs::File::open(path).ok().and_then(|file| { let mut bytes=Vec::new(); file.take(16*1024*1024+1).read_to_end(&mut bytes).ok()?; if bytes.len()>16*1024*1024 {return None;} serde_json::from_slice(&bytes).ok() }).unwrap_or_default()
 }
 impl XiriBackend {
     pub fn new(wake: impl Fn() + Send + Sync + 'static) -> Self {
@@ -90,6 +96,9 @@ impl XiriBackend {
                 let apps = shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone();
                 for app in apps {
                     let answer = source.latest(&app.repo, false);
+                    if let Some(icon)=app.manifest.as_ref().and_then(|m|m.icon.as_ref()) {
+                        if let Ok(Some(bytes))=Http::new().and_then(|http| http.get_bytes(&format!("https://raw.githubusercontent.com/{}/HEAD/{icon}",app.repo),512*1024)) {shared.emit(Event::AppIcon {app:app.id.clone(),bytes});}
+                    }
                     if let LatestRelease::Found(r) = &answer.latest {
                         shared.releases.lock().unwrap_or_else(PoisonError::into_inner).insert(app.id.clone(), r.clone());
                     }
@@ -130,8 +139,7 @@ fn associate(shared: &Arc<Shared>, id: &str, path: &str) -> Result<String, Strin
     };
     let entry = PackageEntry { kind, path: target.file_name().and_then(|s| s.to_str()).ok_or("Nome de arquivo inválido")?.into() };
     let installed = Installed {version: None, source: InstallSource::Binary, location: target.to_string_lossy().into(), package: None};
-    shared.installed.lock().unwrap_or_else(PoisonError::into_inner).insert(id.into(), LocalApp { app, installed, entry, managed: false });
-    shared.save_installed()?;
+    shared.commit_local(id, Some(LocalApp { app, installed, entry, managed: false }))?;
     Ok("Programa local associado".into())
 }
 
@@ -173,9 +181,14 @@ fn install(shared: &Arc<Shared>, id: &str, stop: &Stop) -> Result<String, String
     let hash = xiri_launcher_core::release::parse_sha256sums(&sums).into_iter().find(|(_,name)| name == &asset.name).map(|(hash,_)| hash).ok_or("Pacote não consta no SHA256SUMS.txt")?;
     let download = shared.root.join("downloads").join(format!("{id}-{hash}.zip"));
     shared.emit(Event::Progress {app: id.into(), phase: JobPhase::Downloading {done:0,total:asset.size}});
-    http.download(&asset.url, &download, asset.size, &hash, stop, &mut |progress| {
+    let download_result = http.download(&asset.url, &download, asset.size, &hash, stop, &mut |progress| {
         if let Transfer::Bytes {done,total} = progress { shared.emit(Event::Progress {app: id.into(), phase: JobPhase::Downloading {done,total}}); }
-    })?;
+    });
+    if download_result.as_ref().is_err_and(|e|e==xiri_launcher_core::protocol::PAUSED) {
+        shared.emit(Event::Paused {app:id.into(),download:Some(xiri_launcher_core::protocol::PausedDownload {done:crate::http::partial_bytes(&download,asset.size).unwrap_or(0),total:asset.size})});
+    }
+    download_result?;
+    shared.emit(Event::Paused {app:id.into(),download:None});
     stop.check()?;
     shared.emit(Event::Progress {app:id.into(),phase:JobPhase::Verifying});
     let app_root = shared.root.join("apps").join(id);
@@ -193,14 +206,14 @@ fn install(shared: &Arc<Shared>, id: &str, stop: &Stop) -> Result<String, String
     let target = crate::xiri_package::validate_package(&destination, manifest)?;
     let entry = manifest.windows.as_ref().ok_or("Sem entrada Windows")?.entry.clone();
     let installed = Installed {version:release.version.clone(),source:InstallSource::Launcher,location:target.to_string_lossy().into(),package:Some(hash)};
-    shared.installed.lock().unwrap_or_else(PoisonError::into_inner).insert(id.into(),LocalApp {app,installed,entry,managed:true});
-    shared.save_installed()?;
+    shared.commit_local(id,Some(LocalApp {app,installed,entry,managed:true}))?;
     Ok("Programa instalado. Dados e versões anteriores foram preservados.".into())
 }
 #[cfg(not(windows))]
 fn install(_: &Arc<Shared>, _: &str, _: &Stop) -> Result<String,String> { Err("Instalação Xiri disponível inicialmente no Windows x64".into()) }
 
 impl Backend for XiriBackend {
+    fn dynamic_catalog(&self) -> bool {true}
     fn catalog(&self) -> Vec<AppInfo> { self.shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone() }
     fn send(&mut self, command: Command) {
         match command {
@@ -211,8 +224,7 @@ impl Backend for XiriBackend {
             Command::Associate {app,path} => self.run_job(app, move |shared,id,_| associate(shared,id,&path)),
             Command::Uninstall {app} => self.run_job(app, |shared,id,_| {
                 if shared.busy(id) { return Err("Feche o programa antes de removê-lo".into()); }
-                shared.installed.lock().unwrap_or_else(PoisonError::into_inner).remove(id);
-                shared.save_installed()?;
+                shared.commit_local(id,None)?;
                 Ok("Associação removida; arquivos e dados foram preservados".into())
             }),
             Command::Reveal {app} => self.run_job(app, |shared,id,_| {
@@ -221,7 +233,8 @@ impl Backend for XiriBackend {
                 #[cfg(not(windows))] let _ = local;
                 Ok("Pasta aberta".into())
             }),
-            Command::Cancel {app} | Command::Pause {app} => { if let Some(stop) = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).get(&app) { stop.cancel(); } },
+            Command::Pause {app} => { if let Some(stop) = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).get(&app) { stop.pause(); } },
+            Command::Cancel {app} => { if let Some(stop) = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).get(&app) { stop.cancel(); } self.shared.emit(Event::Paused {app,download:None}); },
             Command::UpdateLauncher => {},
             Command::Configure(_) | Command::FetchScreenshots { .. } => {},
         }

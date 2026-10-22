@@ -104,12 +104,14 @@ impl Dialog {
 }
 
 pub struct LauncherUi {
+    pub(crate) dynamic_catalog: bool,
     pub(crate) backend: Box<dyn Backend>,
     pub settings: Settings,
     pub(crate) entries: Vec<AppEntry>,
     pub(crate) caps: Capabilities,
     pub(crate) platform: Option<Platform>,
     pub(crate) checking: bool,
+    pub(crate) catalog_warning: Option<String>,
     pub(crate) last_source: Option<Source>,
     pub(crate) rate_limited_until: Option<i64>,
     pub(crate) launcher_update: Option<Release>,
@@ -183,17 +185,20 @@ impl LauncherUi {
         theme::install_fonts(ctx, cjk_font);
         egui_extras::install_image_loaders(ctx);
         let backend_catalog = backend.catalog();
+        let dynamic_catalog = backend.dynamic_catalog();
         let caps = backend.capabilities();
         let platform = backend.platform();
         let mut settings = settings;
         settings.migrate();
         Self {
             backend,
+            dynamic_catalog,
             settings,
             entries: backend_catalog.into_iter().map(AppEntry::new).collect(),
             caps,
             platform,
             checking: false,
+            catalog_warning: None,
             last_source: None,
             rate_limited_until: None,
             launcher_update: None,
@@ -299,7 +304,7 @@ impl LauncherUi {
     }
 
     pub(crate) fn custom_install_folders(&self) -> bool {
-        self.caps.manage_apps
+        !self.dynamic_catalog && self.caps.manage_apps
             && self.platform.is_some_and(|p| {
                 matches!(p.os, xiri_launcher_core::Os::Windows | xiri_launcher_core::Os::MacOs | xiri_launcher_core::Os::Linux)
             })
@@ -364,7 +369,9 @@ impl LauncherUi {
     /// Returns whether app state changed.
     fn handle(&mut self, ctx: &egui::Context, event: Event) -> bool {
         match event {
+            Event::AppIcon {app,bytes} => { let _ = crate::icons::register_icon(ctx,&app,&bytes); true },
             Event::CatalogLoaded { apps, warning } => {
+                self.catalog_warning = warning.clone();
                 let mut old = std::mem::take(&mut self.entries);
                 self.entries = apps.into_iter().map(|app| {
                     if let Some(index) = old.iter().position(|e| &e.app.id == &app.id) { let mut entry = old.remove(index); entry.app = std::sync::Arc::new(app); entry } else { AppEntry::new(app) }
@@ -808,5 +815,37 @@ impl LauncherUi {
                 self.toasts.remove(i);
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod xiri_catalog_tests {
+    use super::*;
+    use xiri_launcher_core::xiri::AppInfo;
+    struct Empty;
+    impl Backend for Empty {
+        fn catalog(&self) -> Vec<AppInfo> { Vec::new() }
+        fn send(&mut self, _: Command) {}
+        fn poll(&mut self) -> Vec<Event> { Vec::new() }
+        fn capabilities(&self) -> Capabilities { Capabilities { manage_apps: false, reveal_label: "", self_update: false } }
+        fn platform(&self) -> Option<Platform> { None }
+        fn now(&self) -> i64 { 1 }
+    }
+    #[test]
+    fn dynamic_catalog_handles_empty_and_two_hundred_apps_without_fallback() {
+        let ctx = egui::Context::default();
+        let mut ui = LauncherUi::new(&ctx, Box::new(Empty), Settings::default());
+        assert!(ui.entries.is_empty());
+        let apps: Vec<_> = (0..200).map(|i| { let mut a = AppInfo::from(&xiri_launcher_core::SUITE[0]); a.id=format!("app{i:03}"); a.name=format!("App {i:03}"); a.repo=format!("sugyua/{}",a.id); a }).collect();
+        ui.handle(&ctx, Event::CatalogLoaded { apps: apps.clone(), warning: None });
+        assert_eq!(ui.entries.len(),200);
+        assert!(!ui.visible_ids().iter().any(|s|s=="photocraft"));
+        ui.search="App 019".into();
+        assert_eq!(ui.visible_ids(),vec!["app019"]);
+        ui.settings.view=ViewMode::Table;
+        assert_eq!(ui.visible_ids(),vec!["app019"]);
+        ui.handle(&ctx,Event::CatalogLoaded {apps,warning:Some("offline".into())});
+        assert_eq!(ui.catalog_warning.as_deref(),Some("offline"));
+        assert_eq!(ui.entries.len(),200);
     }
 }

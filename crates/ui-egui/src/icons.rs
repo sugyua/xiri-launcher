@@ -3,11 +3,14 @@
 use egui::ImageSource;
 
 /// The 128 px icon of a Craft App.
-pub fn app(_id: &str) -> Option<ImageSource<'static>> { Some(egui::include_image!("../../../assets/xiri/mark.svg")) }
+pub fn app(_id: &str) -> Option<ImageSource<'static>> { Some(egui::include_image!("../../../assets/xiri/mark.png")) }
 
 /// A Craft App's icon: in colour, or in greys for an app that is not installed. The grey copy is
 /// made once per app from the same bundled picture and kept in the context.
 pub fn app_image(ctx: &egui::Context, id: &str, in_colour: bool) -> Option<egui::Image<'static>> {
+    if let Some(texture) = ctx.data(|data| data.get_temp::<egui::TextureHandle>(egui::Id::new(("xiri-icon",id,in_colour)))) {
+        return Some(egui::Image::new(&texture));
+    }
     let colour = app(id).map(egui::Image::new);
     if in_colour {
         return colour;
@@ -30,6 +33,22 @@ pub fn app_image(ctx: &egui::Context, id: &str, in_colour: bool) -> Option<egui:
         ctx.load_texture(format!("grey-app-icon-{id}"), egui::ColorImage::from_rgba_unmultiplied(size, &pixels), egui::TextureOptions::LINEAR);
     ctx.data_mut(|d| d.insert_temp(key, texture.clone()));
     Some(egui::Image::new(&texture))
+}
+
+pub(crate) fn register_icon(ctx: &egui::Context, id: &str, bytes: &[u8]) -> Result<(),String> {
+    if bytes.len()>512*1024 {return Err("Ícone grande demais".into());}
+    let reader=image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().map_err(|e|e.to_string())?;
+    if reader.format()!=Some(image::ImageFormat::Png) {return Err("Ícone deve ser PNG".into());}
+    let (width,height)=reader.into_dimensions().map_err(|e|e.to_string())?;
+    if width==0 || height==0 || width>1024 || height>1024 {return Err("Dimensões de ícone inválidas".into());}
+    let image=image::load_from_memory(bytes).map_err(|e|e.to_string())?.into_rgba8();
+    let mut pixels=image.into_raw();
+    for colour in [true,false] {
+        if !colour {desaturate(&mut pixels);}
+        let texture=ctx.load_texture(format!("xiri-{id}-{colour}"),egui::ColorImage::from_rgba_unmultiplied([width as usize,height as usize],&pixels),egui::TextureOptions::LINEAR);
+        ctx.data_mut(|data|data.insert_temp(egui::Id::new(("xiri-icon",id,colour)),texture));
+    }
+    Ok(())
 }
 
 /// Turns RGBA pixels grey by their luminance, leaving the alpha as it was.

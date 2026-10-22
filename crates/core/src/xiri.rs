@@ -81,6 +81,7 @@ pub fn parse_manifest(bytes: &[u8]) -> Result<XiriManifest, String> {
     if bytes.len() > 65536 { return Err("O manifesto excede 64 KiB".into()); }
     let m: XiriManifest = serde_json::from_slice(bytes).map_err(|e| format!("Manifesto inválido: {e}"))?;
     if m.schema_version != 1 { return Err("Versão de manifesto não suportada".into()); }
+    if m.icon.as_ref().is_some_and(|icon| !valid_entry_path(icon) || !icon.ends_with(".png")) { return Err("Ícone deve ser um PNG com caminho relativo no repositório".into()); }
     if let Some(w) = &m.windows {
         if !valid_entry_path(&w.entry.path) || !valid_entry_path(&w.asset) || w.asset.contains('/') || !w.asset.ends_with(".zip") {
             return Err("Caminho ou pacote Windows inválido".into());

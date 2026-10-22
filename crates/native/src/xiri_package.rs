@@ -36,8 +36,9 @@ pub fn extract_verified<R: Read + Seek>(reader: R, destination: &Path) -> Result
         if file.is_dir() { std::fs::create_dir_all(&target).map_err(|e| e.to_string())?; continue; }
         if let Some(parent) = target.parent() { std::fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
         let mut output = std::fs::OpenOptions::new().write(true).create_new(true).open(&target).map_err(|e| e.to_string())?;
-        let actual = std::io::copy(&mut file, &mut output).map_err(|e| e.to_string())?;
-        if actual != file.size() { return Err("Arquivo ZIP incompleto".into()); }
+        let expected_size = file.size();
+        let actual = std::io::copy(&mut file.take(expected_size.saturating_add(1)), &mut output).map_err(|e| e.to_string())?;
+        if actual != expected_size { return Err("Arquivo ZIP incompleto".into()); }
     }
     Ok(())
 }

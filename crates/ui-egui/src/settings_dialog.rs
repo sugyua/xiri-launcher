@@ -160,12 +160,13 @@ impl LauncherUi {
                 self.trigger_auto_updates();
             }
             ui.checkbox(&mut self.settings.notify, tl!("Notify me when an installed app has an update"));
-            ui.checkbox(&mut self.settings.prereleases, tl!("Include pre-releases (betas and release candidates)"));
+            if !self.dynamic_catalog { ui.checkbox(&mut self.settings.prereleases, tl!("Include pre-releases (betas and release candidates)")); }
         });
     }
 
     /// Where apps go and in what format, for the desktop builds that manage installs.
     fn settings_install(&mut self, ui: &mut Ui, host: &mut dyn Host) {
+        if self.dynamic_catalog { sheet::panel(ui, tl!("Installing on Windows"), |ui| { ui.label(tl!("Xiri installs verified portable ZIP packages in your local application data folder.")); }); return; }
         if !self.caps.manage_apps {
             return;
         }
@@ -268,27 +269,12 @@ impl LauncherUi {
     }
 
     fn settings_community(&mut self, ui: &mut Ui) {
-        let t = Tokens::get(ui.ctx());
-        sheet::panel(ui, tl!("Community"), |ui| {
-            ui.label(RichText::new(tl!("Questions, ideas and news from the ArtCraft team")).color(t.muted));
-            ui.add_space(6.0);
-            ui.horizontal_wrapped(|ui| {
-                use xiri_launcher_core::catalog::{GITHUB_URL, WEBSITE_URL};
-                if widgets::button(ui, tl!("Join the Discord"), Kind::Primary, 0.0).on_hover_text(self.discord_url).clicked() {
-                    ui.ctx().open_url(egui::OpenUrl::new_tab(self.discord_url));
-                }
-                if widgets::button(ui, tl!("Website"), Kind::Secondary, 0.0).on_hover_text(WEBSITE_URL).clicked() {
-                    ui.ctx().open_url(egui::OpenUrl::new_tab(WEBSITE_URL));
-                }
-                if widgets::button(ui, tl!("GitHub"), Kind::Secondary, 0.0).on_hover_text(GITHUB_URL).clicked() {
-                    ui.ctx().open_url(egui::OpenUrl::new_tab(GITHUB_URL));
-                }
-                // Wrap the social links as a group so their icons stay together.
-                let width = widgets::icon_links_width(xiri_launcher_core::catalog::SOCIAL.len(), 16.0);
-                ui.allocate_ui_with_layout(vec2(width, theme::CONTROL_H), egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                    widgets::social_icons(ui, 16.0);
-                });
-            });
+        let t=Tokens::get(ui.ctx());
+        sheet::panel(ui,tl!("Community"),|ui| {
+            ui.label(egui::RichText::new(tl!("Programs and games by sugyua")).color(t.muted));
+            widgets::hud_link(ui,tl!("GitHub"),xiri_launcher_core::catalog::GITHUB_URL);
+            ui.add_space(8.0);
+            ui.label(tl!("Based on the open source ArtCraft Launcher. See NOTICE for credits and licenses."));
         });
     }
 

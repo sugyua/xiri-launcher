@@ -56,9 +56,9 @@ impl Tray {
         let show = MenuItem::new(i18n::t("Show Xiri Launcher"), true, None);
         let check = MenuItem::new(i18n::t("Check for Updates"), true, None);
         use xiri_launcher_core::catalog::{GITHUB_URL, WEBSITE_URL};
-        let website = MenuItem::new(i18n::t("Visit getartcraft.com"), true, None);
-        let github = MenuItem::new(i18n::t("ArtCraft on GitHub"), true, None);
-        let discord = MenuItem::new(i18n::t("Join the ArtCraft Discord"), true, None);
+        let website = MenuItem::new(i18n::t("GitHub"), true, None);
+        let github = MenuItem::new(i18n::t("Xiri Launcher"), true, None);
+        let discord = MenuItem::new(i18n::t("All releases"), true, None);
         let quit = MenuItem::new(i18n::t("Quit Xiri Launcher"), true, None);
         let menu = Menu::new();
         menu.append_items(&[&show, &check, &PredefinedMenuItem::separator(), &website, &github, &discord, &PredefinedMenuItem::separator(), &quit])
@@ -87,7 +87,7 @@ impl Tray {
                 } else if e.id == ids.2 {
                     TrayAction::Quit
                 } else if e.id == ids.3 {
-                    TrayAction::Open(xiri_launcher_native::process::discord_url())
+                    TrayAction::Open("https://github.com/sugyua/xiri-launcher/releases")
                 } else if let Some((_, url)) = links.iter().find(|(id, _)| *id == e.id) {
                     TrayAction::Open(url)
                 } else {
@@ -109,9 +109,9 @@ impl Tray {
         let labels = vec![
             (show, "Show Xiri Launcher"),
             (check, "Check for Updates"),
-            (website, "Visit getartcraft.com"),
-            (github, "ArtCraft on GitHub"),
-            (discord, "Join the ArtCraft Discord"),
+            (website, "GitHub"),
+            (github, "Xiri Launcher"),
+            (discord, "All releases"),
             (quit, "Quit Xiri Launcher"),
         ];
         Ok(Self { icon, show: show_id, check: check_id, quit: quit_id, rx, tooltip: String::new(), language: String::new(), labels })

@@ -367,11 +367,13 @@ filter	Installed	Instalados
 	Last updated: {date}	Última atualização: {date}
 column	Version	Versão
 
-Associate local program…	Associar programa local…
-Select an EXE or PowerShell program to associate with this repository.	Selecione um programa EXE ou PowerShell para associar a este repositório.
-Choose program…	Escolher programa…
-Game	Jogo
-Program	Programa
-Automatic installation is not configured. See the repository for requirements or associate a local program.	A instalação automática não está configurada. Consulte os requisitos no repositório ou associe um programa local.
-Xiri Launcher	Xiri Launcher
-Xiri App Library	Biblioteca Xiri
+	Associate local program…	Associar programa local…
+	Select an EXE or PowerShell program to associate with this repository.	Selecione um programa EXE ou PowerShell para associar a este repositório.
+	Choose program…	Escolher programa…
+	Game	Jogo
+	Program	Programa
+	Automatic installation is not configured. See the repository for requirements or associate a local program.	A instalação automática não está configurada. Consulte os requisitos no repositório ou associe um programa local.
+	Xiri installs verified portable ZIP packages in your local application data folder.	O Xiri instala pacotes ZIP portáteis verificados na sua pasta local de aplicativos.
+	Programs and games by sugyua	Programas e jogos de sugyua
+	Based on the open source ArtCraft Launcher. See NOTICE for credits and licenses.	Baseado no código aberto do ArtCraft Launcher. Consulte NOTICE para créditos e licenças.
+	Downloads	Downloads

@@ -380,11 +380,13 @@ filter	Installed	Telepítve
 	Last updated: {date}	Utoljára frissítve: {date}
 column	Version	Verzió
 
-Associate local program…	Associate local program…
-Select an EXE or PowerShell program to associate with this repository.	Select an EXE or PowerShell program to associate with this repository.
-Choose program…	Choose program…
-Game	Game
-Program	Program
-Automatic installation is not configured. See the repository for requirements or associate a local program.	Automatic installation is not configured. See the repository for requirements or associate a local program.
-Xiri Launcher	Xiri Launcher
-Xiri App Library	Xiri App Library
+	Associate local program…	Associate local program…
+	Select an EXE or PowerShell program to associate with this repository.	Select an EXE or PowerShell program to associate with this repository.
+	Choose program…	Choose program…
+	Game	Game
+	Program	Program
+	Automatic installation is not configured. See the repository for requirements or associate a local program.	Automatic installation is not configured. See the repository for requirements or associate a local program.
+	Xiri installs verified portable ZIP packages in your local application data folder.	Xiri installs verified portable ZIP packages in your local application data folder.
+	Programs and games by sugyua	Programs and games by sugyua
+	Based on the open source ArtCraft Launcher. See NOTICE for credits and licenses.	Based on the open source ArtCraft Launcher. See NOTICE for credits and licenses.
+	Downloads	Downloads
