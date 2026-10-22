@@ -1,5 +1,5 @@
-use xiri_launcher_native::xiri_repositories::{fetch_pages, CatalogCache};
 use xiri_launcher_native::http::Fetched;
+use xiri_launcher_native::xiri_repositories::{CatalogCache, fetch_pages};
 
 #[test]
 fn pagination_is_complete_before_cache_is_replaced() {
@@ -7,9 +7,13 @@ fn pagination_is_complete_before_cache_is_replaced() {
     let result = fetch_pages(&CatalogCache::default(), |_, _| {
         calls += 1;
         if calls == 1 {
-            let rows: Vec<_> = (0..100).map(|i| serde_json::json!({"name":format!("app-{i}"),"full_name":format!("sugyua/app-{i}"),"owner":{"login":"sugyua"}})).collect();
+            let rows: Vec<_> = (0..100)
+                .map(|i| serde_json::json!({"name":format!("app-{i}"),"full_name":format!("sugyua/app-{i}"),"owner":{"login":"sugyua"}}))
+                .collect();
             Ok(Fetched::Body { text: serde_json::to_string(&rows).unwrap(), etag: Some("page1".into()) })
-        } else { Err("offline".into()) }
+        } else {
+            Err("offline".into())
+        }
     });
     assert!(result.is_err());
     assert_eq!(calls, 2);

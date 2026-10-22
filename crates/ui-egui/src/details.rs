@@ -3,13 +3,13 @@
 //! and screenshots come from `core::details`; the live facts (version, date, download size, release
 //! notes) from the app's latest GitHub release.
 
-use xiri_launcher_core::xiri::AppInfo as CraftApp;
 use std::sync::Arc;
+use xiri_launcher_core::xiri::AppInfo as CraftApp;
 
+use egui::{Color32, CornerRadius, Id, Margin, Order, Rect, RichText, Sense, Stroke, Ui, emath::easing, pos2, vec2};
 use xiri_launcher_core::details::AppDetails;
 use xiri_launcher_core::platform::pick_asset;
 use xiri_launcher_core::protocol::Command;
-use egui::{Color32, CornerRadius, Id, Margin, Order, Rect, RichText, Sense, Stroke, Ui, emath::easing, pos2, vec2};
 
 use crate::app::LauncherUi;
 use crate::model::AppEntry;
@@ -100,7 +100,10 @@ impl LauncherUi {
         let slide = if self.reduce_motion { 0.0 } else { SLIDE_SECS };
         let k = ctx.animate_bool_with_time_and_easing(Id::new("details-slide"), open, slide, easing::cubic_out);
         let Some(id) = self.detail_shown.clone() else { return };
-        let Some(details) = AppDetails::by_id(&id) else { self.xiri_details_drawer(ctx); return; };
+        let Some(details) = AppDetails::by_id(&id) else {
+            self.xiri_details_drawer(ctx);
+            return;
+        };
         if k <= 0.0 && !open {
             self.detail_shown = None;
             return;
@@ -216,7 +219,7 @@ impl LauncherUi {
     /// those that have a page.
     fn neighbour_apps(&self, id: &str) -> (Option<String>, Option<String>) {
         let mut ids: Vec<String> = self.visible_ids().into_iter().filter(|i| AppDetails::by_id(i).is_some()).collect();
-        if !ids.iter().any(|item|item==id) {
+        if !ids.iter().any(|item| item == id) {
             ids = xiri_launcher_core::SUITE.iter().map(|a| a.id.to_string()).filter(|i| AppDetails::by_id(i).is_some()).collect();
         }
         let Some(at) = ids.iter().position(|i| i == id) else { return (None, None) };

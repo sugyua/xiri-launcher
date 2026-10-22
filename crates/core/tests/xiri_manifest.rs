@@ -1,12 +1,18 @@
-use xiri_launcher_core::xiri::{parse_manifest, valid_entry_path, Repository, catalog};
+use xiri_launcher_core::xiri::{Repository, catalog, parse_manifest, valid_entry_path};
 
 #[test]
 fn downloads_stay_in_the_owners_release_or_githubs_asset_cdn() {
     use xiri_launcher_core::xiri::trusted_download_url;
-    assert!(trusted_download_url("https://github.com/sugyua/sensor-panel/releases/download/v1/app.zip","sugyua/sensor-panel"));
-    assert!(trusted_download_url("https://release-assets.githubusercontent.com/a?signature=abc","sugyua/sensor-panel"));
-    for url in ["http://github.com/sugyua/sensor-panel/releases/download/v1/a.zip","https://github.com/other/app/releases/download/v1/a.zip","https://release-assets.githubusercontent.com.evil.test/a","https://release-assets.githubusercontent.com@evil.test/a","https://github.com/sugyua/sensor-panel/releases/download/../../../other/a.zip"] {
-        assert!(!trusted_download_url(url,"sugyua/sensor-panel"),"{url}");
+    assert!(trusted_download_url("https://github.com/sugyua/sensor-panel/releases/download/v1/app.zip", "sugyua/sensor-panel"));
+    assert!(trusted_download_url("https://release-assets.githubusercontent.com/a?signature=abc", "sugyua/sensor-panel"));
+    for url in [
+        "http://github.com/sugyua/sensor-panel/releases/download/v1/a.zip",
+        "https://github.com/other/app/releases/download/v1/a.zip",
+        "https://release-assets.githubusercontent.com.evil.test/a",
+        "https://release-assets.githubusercontent.com@evil.test/a",
+        "https://github.com/sugyua/sensor-panel/releases/download/../../../other/a.zip",
+    ] {
+        assert!(!trusted_download_url(url, "sugyua/sensor-panel"), "{url}");
     }
 }
 
@@ -24,7 +30,23 @@ fn package_contract_validates_explicit_entry_and_schema() {
 
 #[test]
 fn windows_paths_cannot_escape_or_alias_another_file() {
-    for path in ["", "../x", "/x", "C:\\x", "\\\\server\\x", "file:stream", "a/../../x", "CON", "aux.txt", "a./x", "x /y", "a//b", "a\\b.exe", "a/./b", "NUL.exe"] {
+    for path in [
+        "",
+        "../x",
+        "/x",
+        "C:\\x",
+        "\\\\server\\x",
+        "file:stream",
+        "a/../../x",
+        "CON",
+        "aux.txt",
+        "a./x",
+        "x /y",
+        "a//b",
+        "a\\b.exe",
+        "a/./b",
+        "NUL.exe",
+    ] {
         assert!(!valid_entry_path(path), "{path}");
     }
     assert!(valid_entry_path("MinhaVersao/Painel.ps1"));
@@ -41,7 +63,8 @@ fn catalog_filters_owned_repositories_without_name_guessing() {
         {"name":"xiri-launcher","full_name":"sugyua/xiri-launcher","owner":{"login":"sugyua"}},
         {"name":"sugyua","full_name":"sugyua/sugyua","owner":{"login":"sugyua"}},
         {"name":"bad","full_name":"other/bad","owner":{"login":"other"}}
-    ])).unwrap();
+    ]))
+    .unwrap();
     let apps = catalog(rows);
     assert_eq!(apps.len(), 2);
     assert!(apps.iter().any(|a| a.id == "destinia"));

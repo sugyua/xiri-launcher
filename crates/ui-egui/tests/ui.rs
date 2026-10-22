@@ -7,6 +7,8 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::OnceLock;
 
+use egui_kittest::Harness;
+use egui_kittest::kittest::{NodeT, Queryable};
 use xiri_launcher_core::details::AppDetails;
 use xiri_launcher_core::protocol::{
     Backend, CANCELLED, Capabilities, Command, Event, INSTALL_CANCELLED, JobPhase, LatestRelease, Origin, PausedDownload, Source,
@@ -16,8 +18,6 @@ use xiri_launcher_core::status::InstallSource;
 use xiri_launcher_core::{Arch, Installed, Os, Platform, SUITE, version};
 use xiri_launcher_ui_egui::settings::ViewMode;
 use xiri_launcher_ui_egui::{Host, LauncherUi, Settings};
-use egui_kittest::Harness;
-use egui_kittest::kittest::{NodeT, Queryable};
 
 const NOW: i64 = 1_791_500_000;
 
@@ -221,17 +221,7 @@ fn harness_with_title_bar(
 }
 
 fn harness_with_discord(discord_url: Option<&'static str>) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    harness_full(
-        events(),
-        ViewMode::Grid,
-        egui::Theme::Dark,
-        true,
-        1.0,
-        xiri_launcher_ui_egui::TitleBar::Native,
-        Rc::default(),
-        None,
-        discord_url,
-    )
+    harness_full(events(), ViewMode::Grid, egui::Theme::Dark, true, 1.0, xiri_launcher_ui_egui::TitleBar::Native, Rc::default(), None, discord_url)
 }
 
 #[allow(clippy::too_many_arguments)] // Test fixture inputs vary independently across existing cases.
@@ -898,7 +888,9 @@ fn links_open_the_right_pages() {
     assert!(github.contains(&"https://github.com/sugyua".to_string()), "{github:?}");
     assert!(github.contains(&"https://github.com/storytold/photocraft".to_string()), "{github:?}");
     assert!(all_opened(&mut h, "Website").is_empty());
-    for label in ["X", "YouTube", "TikTok", "Instagram", "LinkedIn"] { assert!(click_opens(&mut h,label).is_none()); }
+    for label in ["X", "YouTube", "TikTok", "Instagram", "LinkedIn"] {
+        assert!(click_opens(&mut h, label).is_none());
+    }
     // The … menu.
     h.get_all_by_label("…").next().unwrap().click();
     h.run_steps(3);
@@ -1006,9 +998,7 @@ fn the_launcher_updates_itself_and_quits_to_restart() {
     h.run_steps(2);
     assert!(sent.borrow().contains(&Command::UpdateLauncher));
     // Downloading: the banner shows progress instead of the button.
-    shared_events
-        .borrow_mut()
-        .push(Event::Progress { app: "xiri-launcher".into(), phase: JobPhase::Downloading { done: 5 << 20, total: 10 << 20 } });
+    shared_events.borrow_mut().push(Event::Progress { app: "xiri-launcher".into(), phase: JobPhase::Downloading { done: 5 << 20, total: 10 << 20 } });
     h.run_steps(3);
     assert!(h.query_by_label("Update and restart").is_none());
     assert!(!quit.get());

@@ -1,12 +1,14 @@
 //! Portable packages: preflight every path and size before writing, never execute during install.
+use std::collections::HashSet;
 use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
-use std::collections::HashSet;
-use xiri_launcher_core::xiri::{valid_entry_path, parse_manifest, XiriManifest};
+use xiri_launcher_core::xiri::{XiriManifest, parse_manifest, valid_entry_path};
 
 pub fn extract_verified<R: Read + Seek>(reader: R, destination: &Path) -> Result<(), String> {
     let mut zip = zip::ZipArchive::new(reader).map_err(|e| e.to_string())?;
-    if zip.len() > 20_000 { return Err("Pacote com arquivos demais".into()); }
+    if zip.len() > 20_000 {
+        return Err("Pacote com arquivos demais".into());
+    }
     let mut names = HashSet::new();
     let mut total = 0u64;
     for index in 0..zip.len() {
@@ -21,24 +23,37 @@ pub fn extract_verified<R: Read + Seek>(reader: R, destination: &Path) -> Result
         }
         let mut prefix = String::new();
         for component in name.split('/').take(name.split('/').count().saturating_sub(1)) {
-            if !prefix.is_empty() { prefix.push('/'); }
+            if !prefix.is_empty() {
+                prefix.push('/');
+            }
             prefix.push_str(component);
-            if names.contains(&format!("file:{}", prefix.to_lowercase())) { return Err("Arquivo usado como diretório".into()); }
+            if names.contains(&format!("file:{}", prefix.to_lowercase())) {
+                return Err("Arquivo usado como diretório".into());
+            }
         }
         if !file.is_dir() {
-            if names.iter().any(|n| n.starts_with(&format!("{}/", name.to_lowercase()))) { return Err("Conflito entre arquivo e diretório".into()); }
+            if names.iter().any(|n| n.starts_with(&format!("{}/", name.to_lowercase()))) {
+                return Err("Conflito entre arquivo e diretório".into());
+            }
             names.insert(format!("file:{}", name.to_lowercase()));
         }
     }
     for index in 0..zip.len() {
-        let mut file = zip.by_index(index).map_err(|e| e.to_string())?;
+        let file = zip.by_index(index).map_err(|e| e.to_string())?;
         let target = destination.join(file.name());
-        if file.is_dir() { std::fs::create_dir_all(&target).map_err(|e| e.to_string())?; continue; }
-        if let Some(parent) = target.parent() { std::fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
+        if file.is_dir() {
+            std::fs::create_dir_all(&target).map_err(|e| e.to_string())?;
+            continue;
+        }
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
         let mut output = std::fs::OpenOptions::new().write(true).create_new(true).open(&target).map_err(|e| e.to_string())?;
         let expected_size = file.size();
         let actual = std::io::copy(&mut file.take(expected_size.saturating_add(1)), &mut output).map_err(|e| e.to_string())?;
-        if actual != expected_size { return Err("Arquivo ZIP incompleto".into()); }
+        if actual != expected_size {
+            return Err("Arquivo ZIP incompleto".into());
+        }
     }
     Ok(())
 }
@@ -48,10 +63,14 @@ pub fn validate_package(root: &Path, expected: &XiriManifest) -> Result<PathBuf,
     let mut bytes = Vec::new();
     file.take(65537).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
     let bundled = parse_manifest(&bytes)?;
-    if bundled.windows != expected.windows { return Err("O contrato do pacote difere do manifesto remoto; atualize o catálogo".into()); }
+    if bundled.windows != expected.windows {
+        return Err("O contrato do pacote difere do manifesto remoto; atualize o catálogo".into());
+    }
     let entry = bundled.windows.as_ref().ok_or("Sem ponto de entrada Windows")?;
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     let target = root.join(&entry.entry.path).canonicalize().map_err(|_| "O ponto de entrada não existe no pacote")?;
-    if !target.starts_with(&root) || !target.is_file() { return Err("Ponto de entrada fora do pacote".into()); }
+    if !target.starts_with(&root) || !target.is_file() {
+        return Err("Ponto de entrada fora do pacote".into());
+    }
     Ok(target)
 }

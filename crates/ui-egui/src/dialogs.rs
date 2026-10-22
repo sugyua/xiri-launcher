@@ -1,9 +1,9 @@
 //! Modal dialogs: release notes, uninstall confirmation, settings.
 
 use crate::i18n::fmt;
+use egui::{RichText, vec2};
 use xiri_launcher_core::Os;
 use xiri_launcher_core::protocol::Command;
-use egui::{RichText, vec2};
 
 use crate::app::{Dialog, Host, LauncherUi};
 use crate::theme::{self, Tokens};
@@ -30,7 +30,10 @@ impl LauncherUi {
             Dialog::Associate(id) => modal.show(ctx, |ui| {
                 ui.label(tl!("Select an EXE or PowerShell program to associate with this repository."));
                 if ui.button(tl!("Choose program…")).clicked() {
-                    if let Some(path) = host.pick_program() { self.send(Command::Associate { app: id.clone(), path }); close = true; }
+                    if let Some(path) = host.pick_program() {
+                        self.send(Command::Associate { app: id.clone(), path });
+                        close = true;
+                    }
                 }
             }),
             Dialog::Notes(id) => modal.show(ctx, |ui| close = self.notes_dialog(ui, id)),
@@ -184,25 +187,29 @@ impl LauncherUi {
         let t = Tokens::get(ui.ctx());
         ui.set_width(420.0);
         Self::title(ui, crate::icons::app(id), &fmt(tl!("Uninstall {name}?"), &[("name", &entry.app.name)]), "");
-        let how = if self.dynamic_catalog {tl!("The program will be removed from the library. Its files and data will stay on this computer.")} else { match entry.installed.as_ref().map(|i| i.source) {
-            Some(xiri_launcher_core::InstallSource::MacApp) => tl!("The app will be moved to the Trash. Your documents and settings stay."),
-            Some(xiri_launcher_core::InstallSource::Msi) => {
-                tl!("Windows will remove it like any installed program. Your documents and settings stay.")
+        let how = if self.dynamic_catalog {
+            tl!("The program will be removed from the library. Its files and data will stay on this computer.")
+        } else {
+            match entry.installed.as_ref().map(|i| i.source) {
+                Some(xiri_launcher_core::InstallSource::MacApp) => tl!("The app will be moved to the Trash. Your documents and settings stay."),
+                Some(xiri_launcher_core::InstallSource::Msi) => {
+                    tl!("Windows will remove it like any installed program. Your documents and settings stay.")
+                }
+                Some(xiri_launcher_core::InstallSource::Deb | xiri_launcher_core::InstallSource::Rpm | xiri_launcher_core::InstallSource::Pacman) => {
+                    tl!("Your system's package manager will remove it, and may ask for your password. Your documents and settings stay.")
+                }
+                _ => tl!("The app will be removed. Your documents and settings stay."),
             }
-            Some(
-                xiri_launcher_core::InstallSource::Deb
-                | xiri_launcher_core::InstallSource::Rpm
-                | xiri_launcher_core::InstallSource::Pacman,
-            ) => tl!("Your system's package manager will remove it, and may ask for your password. Your documents and settings stay."),
-            _ => tl!("The app will be removed. Your documents and settings stay."),
-        }};
+        };
         ui.label(RichText::new(how).color(t.muted));
         ui.add_space(20.0);
         let mut close = false;
         // A row: a right-to-left layout straight in the column would fill the height left.
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if widgets::button(ui, if self.dynamic_catalog {tl!("Remove from library")} else {tl!("Uninstall")}, Kind::Danger, 110.0).clicked() {
+                if widgets::button(ui, if self.dynamic_catalog { tl!("Remove from library") } else { tl!("Uninstall") }, Kind::Danger, 110.0)
+                    .clicked()
+                {
                     self.send(Command::Uninstall { app: id.to_string() });
                     close = true;
                 }

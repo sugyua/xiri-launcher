@@ -22,16 +22,8 @@ jobs:
           key: xiri-${{ runner.os }}-${{ github.run_id }}
           restore-keys: xiri-${{ runner.os }}-
       - uses: Swatinem/rust-cache@v2
-      - name: Check
-        run: cargo check --workspace
-      - name: Core tests
-        run: cargo test -p xiri-launcher-core
-      - name: Native tests
-        run: cargo test -p xiri-launcher-native
-      - name: UI tests
-        run: cargo test -p xiri-launcher-ui-egui
-      - name: Wasm
-        run: cargo xtask wasm
+      - name: Full CI
+        run: cargo xtask ci
       - name: Build Windows
         run: cargo build --release -p xiri-launcher
       - name: Package

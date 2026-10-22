@@ -22,7 +22,6 @@ mod card_parts;
 #[cfg(not(target_arch = "wasm32"))]
 mod cjk_font;
 mod details;
-mod xiri_details;
 mod dialogs;
 pub mod i18n;
 pub mod icons;
@@ -36,6 +35,7 @@ mod sheet;
 pub mod theme;
 mod views;
 mod widgets;
+mod xiri_details;
 
 pub use app::{Host, LauncherUi, TitleBar};
 pub use i18n::{

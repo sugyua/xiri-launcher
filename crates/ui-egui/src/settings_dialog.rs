@@ -1,8 +1,8 @@
 //! The Settings dialog: a large card in the shape of the app page (see `sheet.rs`), with the
 //! groups of settings in boxes, two columns once the window is wide enough.
 
-use xiri_launcher_core::{Os, PackageKind};
 use egui::{RichText, Ui, vec2};
+use xiri_launcher_core::{Os, PackageKind};
 
 use crate::app::{Host, LauncherUi};
 use crate::i18n::fmt;
@@ -38,13 +38,8 @@ impl LauncherUi {
         let size = sheet::size(ui.ctx(), vec2(1000.0, 820.0));
         ui.set_width(size.x);
         ui.set_max_height(size.y);
-        let hero_h = sheet::hero(
-            ui,
-            Some(crate::icons::artcraft_mark()),
-            tl!("Settings"),
-            &format!("Xiri Launcher {}", env!("CARGO_PKG_VERSION")),
-            |_| {},
-        );
+        let hero_h =
+            sheet::hero(ui, Some(crate::icons::artcraft_mark()), tl!("Settings"), &format!("Xiri Launcher {}", env!("CARGO_PKG_VERSION")), |_| {});
 
         let quit_width = widgets::button_width(ui, tl!("Quit Xiri Launcher"), 0.0);
         let done_width = widgets::button_width(ui, tl!("Done"), 90.0);
@@ -160,13 +155,20 @@ impl LauncherUi {
                 self.trigger_auto_updates();
             }
             ui.checkbox(&mut self.settings.notify, tl!("Notify me when an installed app has an update"));
-            if !self.dynamic_catalog { ui.checkbox(&mut self.settings.prereleases, tl!("Include pre-releases (betas and release candidates)")); }
+            if !self.dynamic_catalog {
+                ui.checkbox(&mut self.settings.prereleases, tl!("Include pre-releases (betas and release candidates)"));
+            }
         });
     }
 
     /// Where apps go and in what format, for the desktop builds that manage installs.
     fn settings_install(&mut self, ui: &mut Ui, host: &mut dyn Host) {
-        if self.dynamic_catalog { sheet::panel(ui, tl!("Installing on Windows"), |ui| { ui.label(tl!("Xiri installs verified portable ZIP packages in your local application data folder.")); }); return; }
+        if self.dynamic_catalog {
+            sheet::panel(ui, tl!("Installing on Windows"), |ui| {
+                ui.label(tl!("Xiri installs verified portable ZIP packages in your local application data folder."));
+            });
+            return;
+        }
         if !self.caps.manage_apps {
             return;
         }
@@ -269,10 +271,10 @@ impl LauncherUi {
     }
 
     fn settings_community(&mut self, ui: &mut Ui) {
-        let t=Tokens::get(ui.ctx());
-        sheet::panel(ui,tl!("Community"),|ui| {
+        let t = Tokens::get(ui.ctx());
+        sheet::panel(ui, tl!("Community"), |ui| {
             ui.label(egui::RichText::new(tl!("Programs and games by sugyua")).color(t.muted));
-            widgets::hud_link(ui,tl!("GitHub"),xiri_launcher_core::catalog::GITHUB_URL);
+            widgets::hud_link(ui, tl!("GitHub"), xiri_launcher_core::catalog::GITHUB_URL);
             ui.add_space(8.0);
             ui.label(tl!("Based on the open source ArtCraft Launcher. See NOTICE for credits and licenses."));
         });

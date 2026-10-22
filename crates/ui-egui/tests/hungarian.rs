@@ -5,14 +5,14 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable;
 use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, Source};
 use xiri_launcher_core::release::{Asset, Release};
 use xiri_launcher_core::status::InstallSource;
 use xiri_launcher_core::{Arch, Installed, Os, Platform, SUITE, version};
 use xiri_launcher_ui_egui::settings::ViewMode;
 use xiri_launcher_ui_egui::{Host, LauncherUi, Settings};
-use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable;
 
 const NOW: i64 = 1_791_500_000;
 
@@ -170,8 +170,7 @@ fn check_settings_layout() {
         // links as one 14px line of text; keep only the settings body's buttons (34px) and icons (24px).
         let discord = h.get_by_label("Programs and games by sugyua").rect();
         assert!(screen.contains_rect(discord), "community links must be reachable by scrolling");
-        let links = vec![discord];
-        assert!(!links.is_empty(), "author information remains reachable");
+        assert_eq!(h.query_all_by_label("Csatlakozás a Discordhoz").count(), 0);
 
         h.get_by_label("Nyelv").scroll_to_me();
         h.run_steps(8);

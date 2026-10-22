@@ -1175,10 +1175,10 @@ mod tests {
         let last = || Ok(());
         let stop = Stop::default();
         let release = Release {
-            version: version::parse("0.1.0"),
-            tag: "v0.1.0".into(),
+            version: version::parse("0.0.0"),
+            tag: "v0.0.0".into(),
             assets: vec![xiri_launcher_core::release::Asset {
-                name: "xiri-launcher-0.1.0-linux-x86_64.AppImage".into(),
+                name: "xiri-launcher-0.0.0-linux-x86_64.AppImage".into(),
                 size: 1,
                 url: String::new(),
                 sha256: None,

@@ -3,8 +3,8 @@
 //!
 //! Invariants: nothing is drawn that has no content; dates come from `views::date_text`.
 
-use xiri_launcher_core::status::AppStatus;
 use egui::{Color32, FontId, Ui};
+use xiri_launcher_core::status::AppStatus;
 
 use crate::i18n::fmt;
 use crate::model::AppEntry;

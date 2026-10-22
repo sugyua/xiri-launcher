@@ -21,12 +21,12 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, SyncSender, channel, sync_chan
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
+use eframe::wgpu::rwh::{HasDisplayHandle, RawDisplayHandle};
 use xiri_launcher_core::protocol::Backend;
 use xiri_launcher_native::single_instance::{self, Instance};
-use xiri_launcher_native::{xiri_backend::XiriBackend as NativeBackend, login};
+use xiri_launcher_native::{login, xiri_backend::XiriBackend as NativeBackend};
 use xiri_launcher_ui_egui::theme::Tokens;
 use xiri_launcher_ui_egui::{Host, LauncherUi, Settings, TitleBar};
-use eframe::wgpu::rwh::{HasDisplayHandle, RawDisplayHandle};
 
 const APP_ID: &str = "io.github.sugyua.xiri-launcher";
 const SETTINGS_KEY: &str = "settings";
@@ -77,9 +77,7 @@ fn main() -> ExitCode {
             }
         }
     }
-    if let Some(error) =
-        xiri_launcher_native::paths::Paths::new().ok().and_then(|paths| xiri_launcher_native::self_update::take_failure(&paths))
-    {
+    if let Some(error) = xiri_launcher_native::paths::Paths::new().ok().and_then(|paths| xiri_launcher_native::self_update::take_failure(&paths)) {
         log::warn!("the last self-update didn't install: {error}");
     }
     let (tray_loop, woken) = sync_channel(1);
@@ -444,7 +442,9 @@ impl Host for DesktopHost {
         login::set_enabled(on)
     }
 
-    fn pick_program(&mut self) -> Option<String> { rfd::FileDialog::new().add_filter("Programa", &["exe", "ps1"]).pick_file().map(|p| p.to_string_lossy().into()) }
+    fn pick_program(&mut self) -> Option<String> {
+        rfd::FileDialog::new().add_filter("Programa", &["exe", "ps1"]).pick_file().map(|p| p.to_string_lossy().into())
+    }
     fn pick_folder(&mut self, initial: Option<&str>) -> Option<String> {
         let mut dialog = rfd::FileDialog::new();
         if let Some(folder) = initial.filter(|p| std::path::Path::new(p).is_dir()) {
@@ -775,8 +775,8 @@ mod tests {
     use std::sync::mpsc::Sender;
     use std::time::Instant;
 
-    use xiri_launcher_core::protocol::{Capabilities, Command, Event, Source};
     use eframe::wgpu::rwh::{AppKitDisplayHandle, WaylandDisplayHandle, WindowsDisplayHandle, XcbDisplayHandle, XlibDisplayHandle};
+    use xiri_launcher_core::protocol::{Capabilities, Command, Event, Source};
 
     use super::*;
 

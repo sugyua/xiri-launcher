@@ -2,12 +2,12 @@
 
 use std::time::Duration;
 
+use xiri_launcher_core::Platform;
 use xiri_launcher_core::protocol::{
     Backend, BackendOptions, CANCELLED, Capabilities, Command, Event, INSTALL_CANCELLED, JobPhase, LatestRelease, PAUSED, Source,
 };
 use xiri_launcher_core::release::Release;
 use xiri_launcher_core::status::AppStatus;
-use xiri_launcher_core::Platform;
 
 use crate::i18n::set_current;
 use crate::model::AppEntry;
@@ -58,7 +58,9 @@ pub trait Host {
     fn reduce_motion(&self) -> bool {
         false
     }
-    fn pick_program(&mut self) -> Option<String> { None }
+    fn pick_program(&mut self) -> Option<String> {
+        None
+    }
     fn pick_folder(&mut self, _initial: Option<&str>) -> Option<String> {
         None
     }
@@ -304,15 +306,19 @@ impl LauncherUi {
     }
 
     pub(crate) fn custom_install_folders(&self) -> bool {
-        !self.dynamic_catalog && self.caps.manage_apps
-            && self.platform.is_some_and(|p| {
-                matches!(p.os, xiri_launcher_core::Os::Windows | xiri_launcher_core::Os::MacOs | xiri_launcher_core::Os::Linux)
-            })
+        !self.dynamic_catalog
+            && self.caps.manage_apps
+            && self
+                .platform
+                .is_some_and(|p| matches!(p.os, xiri_launcher_core::Os::Windows | xiri_launcher_core::Os::MacOs | xiri_launcher_core::Os::Linux))
             && !crate::settings::is_flatpak_sandbox()
     }
 
     pub(crate) fn install_app(&mut self, id: &str) {
-        if self.entry(id).is_some_and(|e| e.app.repo.starts_with("sugyua/")) { self.send(Command::Install { app: id.into() }); return; }
+        if self.entry(id).is_some_and(|e| e.app.repo.starts_with("sugyua/")) {
+            self.send(Command::Install { app: id.into() });
+            return;
+        }
         if !self.custom_install_folders() || self.entry(id).is_some_and(|e| e.installed.is_some()) {
             self.send(Command::Install { app: id.to_string() });
             return;
@@ -369,16 +375,30 @@ impl LauncherUi {
     /// Returns whether app state changed.
     fn handle(&mut self, ctx: &egui::Context, event: Event) -> bool {
         match event {
-            Event::AppIcon {app,bytes} => { let _ = crate::icons::register_icon(ctx,&app,&bytes); true },
+            Event::AppIcon { app, bytes } => {
+                let _ = crate::icons::register_icon(ctx, &app, &bytes);
+                true
+            }
             Event::CatalogLoaded { apps, warning } => {
                 self.catalog_warning = warning.clone();
                 let mut old = std::mem::take(&mut self.entries);
-                self.entries = apps.into_iter().map(|app| {
-                    if let Some(index) = old.iter().position(|e| &e.app.id == &app.id) { let mut entry = old.remove(index); entry.app = std::sync::Arc::new(app); entry } else { AppEntry::new(app) }
-                }).collect();
-                if let Some(warning) = warning { self.toast(ctx, warning, true); }
+                self.entries = apps
+                    .into_iter()
+                    .map(|app| {
+                        if let Some(index) = old.iter().position(|e| &e.app.id == &app.id) {
+                            let mut entry = old.remove(index);
+                            entry.app = std::sync::Arc::new(app);
+                            entry
+                        } else {
+                            AppEntry::new(app)
+                        }
+                    })
+                    .collect();
+                if let Some(warning) = warning {
+                    self.toast(ctx, warning, true);
+                }
                 true
-            },
+            }
             Event::Latest { app, latest, from } => {
                 if let Some(e) = self.entry_mut(&app) {
                     // A failed check keeps the release we already know about (and where it came from).
@@ -824,28 +844,46 @@ mod xiri_catalog_tests {
     use xiri_launcher_core::xiri::AppInfo;
     struct Empty;
     impl Backend for Empty {
-        fn catalog(&self) -> Vec<AppInfo> { Vec::new() }
+        fn catalog(&self) -> Vec<AppInfo> {
+            Vec::new()
+        }
         fn send(&mut self, _: Command) {}
-        fn poll(&mut self) -> Vec<Event> { Vec::new() }
-        fn capabilities(&self) -> Capabilities { Capabilities { manage_apps: false, reveal_label: "", self_update: false } }
-        fn platform(&self) -> Option<Platform> { None }
-        fn now(&self) -> i64 { 1 }
+        fn poll(&mut self) -> Vec<Event> {
+            Vec::new()
+        }
+        fn capabilities(&self) -> Capabilities {
+            Capabilities { manage_apps: false, reveal_label: "", self_update: false }
+        }
+        fn platform(&self) -> Option<Platform> {
+            None
+        }
+        fn now(&self) -> i64 {
+            1
+        }
     }
     #[test]
     fn dynamic_catalog_handles_empty_and_two_hundred_apps_without_fallback() {
         let ctx = egui::Context::default();
         let mut ui = LauncherUi::new(&ctx, Box::new(Empty), Settings::default());
         assert!(ui.entries.is_empty());
-        let apps: Vec<_> = (0..200).map(|i| { let mut a = AppInfo::from(&xiri_launcher_core::SUITE[0]); a.id=format!("app{i:03}"); a.name=format!("App {i:03}"); a.repo=format!("sugyua/{}",a.id); a }).collect();
+        let apps: Vec<_> = (0..200)
+            .map(|i| {
+                let mut a = AppInfo::from(&xiri_launcher_core::SUITE[0]);
+                a.id = format!("app{i:03}");
+                a.name = format!("App {i:03}");
+                a.repo = format!("sugyua/{}", a.id);
+                a
+            })
+            .collect();
         ui.handle(&ctx, Event::CatalogLoaded { apps: apps.clone(), warning: None });
-        assert_eq!(ui.entries.len(),200);
-        assert!(!ui.visible_ids().iter().any(|s|s=="photocraft"));
-        ui.search="App 019".into();
-        assert_eq!(ui.visible_ids(),vec!["app019"]);
-        ui.settings.view=ViewMode::Table;
-        assert_eq!(ui.visible_ids(),vec!["app019"]);
-        ui.handle(&ctx,Event::CatalogLoaded {apps,warning:Some("offline".into())});
-        assert_eq!(ui.catalog_warning.as_deref(),Some("offline"));
-        assert_eq!(ui.entries.len(),200);
+        assert_eq!(ui.entries.len(), 200);
+        assert!(!ui.visible_ids().iter().any(|s| s == "photocraft"));
+        ui.search = "App 019".into();
+        assert_eq!(ui.visible_ids(), vec!["app019"]);
+        ui.settings.view = ViewMode::Table;
+        assert_eq!(ui.visible_ids(), vec!["app019"]);
+        ui.handle(&ctx, Event::CatalogLoaded { apps, warning: Some("offline".into()) });
+        assert_eq!(ui.catalog_warning.as_deref(), Some("offline"));
+        assert_eq!(ui.entries.len(), 200);
     }
 }

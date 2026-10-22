@@ -1,11 +1,11 @@
 //! The header, toolbar, footer, the grid of cards and the table, laid out like the apps page on
 //! getartcraft.com: hairline cells, mono labels and square controls.
 
+use egui::{Color32, CornerRadius, FontId, Rect, RichText, Sense, Stroke, Ui, vec2};
 use xiri_launcher_core::platform::pick_asset;
 use xiri_launcher_core::protocol::{Command, JobPhase};
 use xiri_launcher_core::status::AppStatus;
 use xiri_launcher_core::time;
-use egui::{Color32, CornerRadius, FontId, Rect, RichText, Sense, Stroke, Ui, vec2};
 
 use crate::app::{Dialog, LauncherUi, TitleBar};
 use crate::i18n::{current, fmt, t, tn, tr_ctx};
@@ -74,7 +74,9 @@ impl LauncherUi {
             // The ArtCraft wordmark exactly as supplied, in its own cell.
             let logo = vec2(14.0 * crate::icons::ARTCRAFT_LOGO_ASPECT, 14.0);
             let (cell, _) = ui.allocate_exact_size(vec2(logo.x + 40.0, h), Sense::hover());
-            egui::Image::new(crate::icons::artcraft_logo(t.dark)).alt_text(tl!("Xiri Launcher")).paint_at(ui, Rect::from_center_size(cell.center(), logo));
+            egui::Image::new(crate::icons::artcraft_logo(t.dark))
+                .alt_text(tl!("Xiri Launcher"))
+                .paint_at(ui, Rect::from_center_size(cell.center(), logo));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if bar == TitleBar::Custom {
                     widgets::window_buttons(ui, h);
@@ -256,7 +258,8 @@ impl LauncherUi {
     fn update_all_button(&mut self, ui: &mut Ui, updates: usize) {
         let label = if updates == 1 { tl!("Update 1 app").to_string() } else { fmt(tl!("Update all ({count})"), &[("count", &updates.to_string())]) };
         if widgets::button(ui, &label, Kind::Primary, 0.0).clicked() {
-            let ids: Vec<String> = self.entries.iter().filter(|e| self.in_filter(e, Filter::Updates) && e.job.is_none()).map(|e| e.app.id.clone()).collect();
+            let ids: Vec<String> =
+                self.entries.iter().filter(|e| self.in_filter(e, Filter::Updates) && e.job.is_none()).map(|e| e.app.id.clone()).collect();
             for id in ids {
                 self.send(Command::Install { app: id.to_string() });
             }
@@ -850,7 +853,10 @@ impl LauncherUi {
         let manage = self.caps.manage_apps;
         let reveal = self.caps.reveal_label;
         widgets::more_menu(ui, |ui| {
-            if manage && ui.button(tl!("Associate local program…")).clicked() { self.dialog = Some(Dialog::Associate(id.clone())); ui.close(); }
+            if manage && ui.button(tl!("Associate local program…")).clicked() {
+                self.dialog = Some(Dialog::Associate(id.clone()));
+                ui.close();
+            }
             if entry.release().is_some() && ui.button(tl!("Release notes")).clicked() {
                 self.dialog = Some(Dialog::Notes(id.clone()));
                 ui.close();
@@ -877,7 +883,13 @@ impl LauncherUi {
                     ui.close();
                 }
                 ui.separator();
-                if ui.button(RichText::new(if self.dynamic_catalog {tl!("Remove from library…")} else {tl!("Uninstall…")}).color(Tokens::get(ui.ctx()).bad)).clicked() {
+                if ui
+                    .button(
+                        RichText::new(if self.dynamic_catalog { tl!("Remove from library…") } else { tl!("Uninstall…") })
+                            .color(Tokens::get(ui.ctx()).bad),
+                    )
+                    .clicked()
+                {
                     self.dialog = Some(Dialog::ConfirmUninstall(id.clone()));
                     ui.close();
                 }

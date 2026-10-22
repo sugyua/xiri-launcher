@@ -30,11 +30,8 @@ fn load_icon() -> Result<tray_icon::Icon, String> {
     // The ArtCraft "A" mark (an ArtCraft trademark, not MIT/Apache: docs/brand/LICENSE-brand.txt).
     // macOS tints the black mark to the menu bar's colours as a template image; elsewhere the
     // blue mark is shown as supplied.
-    let bytes: &[u8] = if cfg!(target_os = "macos") {
-        include_bytes!("../../../assets/xiri/mark.png")
-    } else {
-        include_bytes!("../../../assets/xiri/mark.png")
-    };
+    let bytes: &[u8] =
+        if cfg!(target_os = "macos") { include_bytes!("../../../assets/xiri/mark.png") } else { include_bytes!("../../../assets/xiri/mark.png") };
     let img = image::load_from_memory_with_format(bytes, image::ImageFormat::Png).map_err(|e| e.to_string())?.into_rgba8();
     let (w, h) = img.dimensions();
     tray_icon::Icon::from_rgba(img.into_raw(), w, h).map_err(|e| e.to_string())

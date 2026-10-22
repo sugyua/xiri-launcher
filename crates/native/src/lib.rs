@@ -26,10 +26,10 @@ pub mod screenshots;
 pub mod self_update;
 pub mod single_instance;
 pub mod source;
-pub mod xiri_repositories;
 pub mod xiri_backend;
 #[cfg(windows)]
 pub mod xiri_package;
+pub mod xiri_repositories;
 
 pub use backend::NativeBackend;
 

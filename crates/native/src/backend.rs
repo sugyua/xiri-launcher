@@ -861,9 +861,7 @@ fn local_mirror() -> Option<String> {
     let base = std::env::var("XIRI_LAUNCHER_DOWNLOAD_BASE").ok()?;
     let base = base.trim();
     if !is_loopback(base) || base.contains(['?', '#', '\\']) {
-        log::warn!(
-            "ignoring XIRI_LAUNCHER_DOWNLOAD_BASE={base}: only http://127.0.0.1:<port>/, http://localhost:<port>/ or http://[::1]:<port>/"
-        );
+        log::warn!("ignoring XIRI_LAUNCHER_DOWNLOAD_BASE={base}: only http://127.0.0.1:<port>/, http://localhost:<port>/ or http://[::1]:<port>/");
         return None;
     }
     Some(if base.ends_with('/') { base.to_string() } else { format!("{base}/") })
@@ -951,7 +949,7 @@ impl NativeBackend {
 impl Backend for NativeBackend {
     fn send(&mut self, command: Command) {
         match command {
-            Command::Associate { .. } => {},
+            Command::Associate { .. } => {}
             Command::CheckForUpdates { force } => self.check(force),
             Command::Detect => self.detect_all(),
             Command::Install { app } => self.start_job(&app, Work::Install),

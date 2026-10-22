@@ -5,14 +5,14 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable;
 use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, Source};
 use xiri_launcher_core::release::{Asset, Release};
 use xiri_launcher_core::status::InstallSource;
 use xiri_launcher_core::{Arch, Installed, Os, Platform, SUITE, version};
 use xiri_launcher_ui_egui::settings::ViewMode;
 use xiri_launcher_ui_egui::{Host, LauncherUi, Settings};
-use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable;
 
 const NOW: i64 = 1_791_500_000;
 

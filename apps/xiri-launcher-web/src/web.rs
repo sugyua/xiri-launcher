@@ -3,13 +3,13 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, LatestRelease, Origin, Source};
-use xiri_launcher_core::release::{self, Release};
-use xiri_launcher_core::{Arch, Os, Platform};
-use xiri_launcher_core::xiri::{AppInfo,Repository,parse_manifest,catalog};
-use xiri_launcher_ui_egui::{Host, LauncherUi, Settings, i18n};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
+use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, LatestRelease, Origin, Source};
+use xiri_launcher_core::release::{self, Release};
+use xiri_launcher_core::xiri::{AppInfo, Repository, catalog, parse_manifest};
+use xiri_launcher_core::{Arch, Os, Platform};
+use xiri_launcher_ui_egui::{Host, LauncherUi, Settings, i18n};
 
 const SETTINGS_KEY: &str = "settings";
 
@@ -128,60 +128,111 @@ impl eframe::App for WebApp {
 }
 
 struct WebBackend {
-    events: Rc<RefCell<Vec<Event>>>, ctx: egui::Context, platform: Option<Platform>, checking: Rc<RefCell<bool>>,
+    events: Rc<RefCell<Vec<Event>>>,
+    ctx: egui::Context,
+    platform: Option<Platform>,
+    checking: Rc<RefCell<bool>>,
 }
 impl WebBackend {
-    fn new(ctx: egui::Context) -> Self {Self {events:Rc::default(),ctx,platform:visitor_platform(),checking:Rc::default()}}
+    fn new(ctx: egui::Context) -> Self {
+        Self { events: Rc::default(), ctx, platform: visitor_platform(), checking: Rc::default() }
+    }
     fn check(&self) {
-        if self.checking.replace(true) {return;}
-        let events=self.events.clone();let ctx=self.ctx.clone();let checking=self.checking.clone();
+        if self.checking.replace(true) {
+            return;
+        }
+        let events = self.events.clone();
+        let ctx = self.ctx.clone();
+        let checking = self.checking.clone();
         wasm_bindgen_futures::spawn_local(async move {
             events.borrow_mut().push(Event::CheckStarted);
             match public_catalog().await {
-                Ok(apps)=>{
-                    events.borrow_mut().push(Event::CatalogLoaded {apps:apps.clone(),warning:None});ctx.request_repaint();
+                Ok(apps) => {
+                    events.borrow_mut().push(Event::CatalogLoaded { apps: apps.clone(), warning: None });
+                    ctx.request_repaint();
                     for app in apps {
-                        let latest=latest(&app.repo,false).await.unwrap_or_else(|_|LatestRelease::Failed("GitHub indisponível ou limite de consultas atingido".into()));
-                        events.borrow_mut().push(Event::Latest {app:app.id,latest,from:Origin::GitHub});ctx.request_repaint();
+                        let latest = latest(&app.repo, false)
+                            .await
+                            .unwrap_or_else(|_| LatestRelease::Failed("GitHub indisponível ou limite de consultas atingido".into()));
+                        events.borrow_mut().push(Event::Latest { app: app.id, latest, from: Origin::GitHub });
+                        ctx.request_repaint();
                     }
-                },
-                Err(error)=>events.borrow_mut().push(Event::CatalogLoaded {apps:Vec::new(),warning:Some(error)}),
+                }
+                Err(error) => events.borrow_mut().push(Event::CatalogLoaded { apps: Vec::new(), warning: Some(error) }),
             }
-            events.borrow_mut().push(Event::CheckFinished {at:(js_sys::Date::now()/1000.0) as i64,source:Source::GitHubApi,rate_limited_until:None});
-            *checking.borrow_mut()=false;ctx.request_repaint();
+            events.borrow_mut().push(Event::CheckFinished {
+                at: (js_sys::Date::now() / 1000.0) as i64,
+                source: Source::GitHubApi,
+                rate_limited_until: None,
+            });
+            *checking.borrow_mut() = false;
+            ctx.request_repaint();
         });
     }
 }
-async fn text(url:&str,max:usize)->Result<Option<String>,String> {
-    let window=web_sys::window().ok_or("Navegador indisponível")?;
-    let request=web_sys::Request::new_with_str(url).map_err(|_|"URL inválida")?;
-    let response:web_sys::Response=JsFuture::from(window.fetch_with_request(&request)).await.map_err(|_|"Sem conexão")?.dyn_into().map_err(|_|"Resposta inválida")?;
-    if response.status()==404 {return Ok(None);}
-    if response.status()!=200 {return Err(format!("GitHub retornou HTTP {}",response.status()));}
-    if response.headers().get("content-length").ok().flatten().and_then(|s|s.parse::<usize>().ok()).is_some_and(|n|n>max) {return Err("Resposta grande demais".into());}
-    let text=JsFuture::from(response.text().map_err(|_|"Resposta ilegível")?).await.map_err(|_|"Resposta ilegível")?.as_string().ok_or("Resposta inválida")?;
-    if text.len()>max {return Err("Resposta grande demais".into());}
+async fn text(url: &str, max: usize) -> Result<Option<String>, String> {
+    let window = web_sys::window().ok_or("Navegador indisponível")?;
+    let request = web_sys::Request::new_with_str(url).map_err(|_| "URL inválida")?;
+    let response: web_sys::Response =
+        JsFuture::from(window.fetch_with_request(&request)).await.map_err(|_| "Sem conexão")?.dyn_into().map_err(|_| "Resposta inválida")?;
+    if response.status() == 404 {
+        return Ok(None);
+    }
+    if response.status() != 200 {
+        return Err(format!("GitHub retornou HTTP {}", response.status()));
+    }
+    if response.headers().get("content-length").ok().flatten().and_then(|s| s.parse::<usize>().ok()).is_some_and(|n| n > max) {
+        return Err("Resposta grande demais".into());
+    }
+    let text = JsFuture::from(response.text().map_err(|_| "Resposta ilegível")?)
+        .await
+        .map_err(|_| "Resposta ilegível")?
+        .as_string()
+        .ok_or("Resposta inválida")?;
+    if text.len() > max {
+        return Err("Resposta grande demais".into());
+    }
     Ok(Some(text))
 }
-async fn public_catalog()->Result<Vec<AppInfo>,String> {
-    let mut rows=Vec::new();let mut complete=false;
+async fn public_catalog() -> Result<Vec<AppInfo>, String> {
+    let mut rows = Vec::new();
+    let mut complete = false;
     for page in 1..=20 {
-        let body=text(&format!("https://api.github.com/users/sugyua/repos?per_page=100&page={page}"),4*1024*1024).await?.ok_or("Perfil não encontrado")?;
-        let page:Vec<Repository>=serde_json::from_str(&body).map_err(|e|e.to_string())?;
-        let done=page.len()<100;rows.extend(page);if done {complete=true;break;}
-    }
-    if !complete {return Err("O catálogo excede 2.000 repositórios".into());}
-    let mut apps=catalog(rows);
-    for app in &mut apps {
-        match text(&format!("https://raw.githubusercontent.com/{}/HEAD/xiri.json",app.repo),65536).await {
-            Ok(Some(body))=>match parse_manifest(body.as_bytes()) {
-                Ok(manifest)=>{if let Some(title)=&manifest.title {app.name=title.clone();}if let Some(description)=&manifest.description {app.tagline=description.clone();}app.manifest=Some(manifest);},
-                Err(error)=>app.manifest_error=Some(error),
-            },
-            Ok(None)=>{},Err(error)=>app.manifest_error=Some(error),
+        let body = text(&format!("https://api.github.com/users/sugyua/repos?per_page=100&page={page}"), 4 * 1024 * 1024)
+            .await?
+            .ok_or("Perfil não encontrado")?;
+        let page: Vec<Repository> = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+        let done = page.len() < 100;
+        rows.extend(page);
+        if done {
+            complete = true;
+            break;
         }
     }
-    apps.retain(|a|a.manifest.as_ref().is_none_or(|m|m.visible));Ok(apps)
+    if !complete {
+        return Err("O catálogo excede 2.000 repositórios".into());
+    }
+    let mut apps = catalog(rows);
+    for app in &mut apps {
+        match text(&format!("https://raw.githubusercontent.com/{}/HEAD/xiri.json", app.repo), 65536).await {
+            Ok(Some(body)) => match parse_manifest(body.as_bytes()) {
+                Ok(manifest) => {
+                    if let Some(title) = &manifest.title {
+                        app.name = title.clone();
+                    }
+                    if let Some(description) = &manifest.description {
+                        app.tagline = description.clone();
+                    }
+                    app.manifest = Some(manifest);
+                }
+                Err(error) => app.manifest_error = Some(error),
+            },
+            Ok(None) => {}
+            Err(error) => app.manifest_error = Some(error),
+        }
+    }
+    apps.retain(|a| a.manifest.as_ref().is_none_or(|m| m.visible));
+    Ok(apps)
 }
 
 async fn latest(repo: &str, prereleases: bool) -> Result<LatestRelease, Option<i64>> {
@@ -207,7 +258,9 @@ async fn latest(repo: &str, prereleases: bool) -> Result<LatestRelease, Option<i
         _ => return Err(None),
     }
     let text = JsFuture::from(resp.text().map_err(|_| None)?).await.map_err(|_| None)?.as_string().ok_or(None)?;
-    if text.len()>4*1024*1024 {return Err(None);}
+    if text.len() > 4 * 1024 * 1024 {
+        return Err(None);
+    }
     let found: Option<Release> = if prereleases {
         release::parse_github_release_list(&text, repo, true).map_err(|_| None)?
     } else {
@@ -242,11 +295,27 @@ fn visitor_platform() -> Option<Platform> {
 }
 
 impl Backend for WebBackend {
-    fn dynamic_catalog(&self)->bool {true}
-    fn catalog(&self)->Vec<AppInfo> {Vec::new()}
-    fn send(&mut self,command:Command) {if matches!(command,Command::CheckForUpdates {..}) {self.check();}}
-    fn poll(&mut self)->Vec<Event> {std::mem::take(&mut *self.events.borrow_mut())}
-    fn capabilities(&self)->Capabilities {Capabilities {manage_apps:false,reveal_label:"",self_update:false}}
-    fn platform(&self)->Option<Platform> {self.platform}
-    fn now(&self)->i64 {(js_sys::Date::now()/1000.0) as i64}
+    fn dynamic_catalog(&self) -> bool {
+        true
+    }
+    fn catalog(&self) -> Vec<AppInfo> {
+        Vec::new()
+    }
+    fn send(&mut self, command: Command) {
+        if matches!(command, Command::CheckForUpdates { .. }) {
+            self.check();
+        }
+    }
+    fn poll(&mut self) -> Vec<Event> {
+        std::mem::take(&mut *self.events.borrow_mut())
+    }
+    fn capabilities(&self) -> Capabilities {
+        Capabilities { manage_apps: false, reveal_label: "", self_update: false }
+    }
+    fn platform(&self) -> Option<Platform> {
+        self.platform
+    }
+    fn now(&self) -> i64 {
+        (js_sys::Date::now() / 1000.0) as i64
+    }
 }

@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use xiri_launcher_core::PackageKind;
 use serde::{Deserialize, Serialize};
+use xiri_launcher_core::PackageKind;
 
 use crate::i18n::t;
 use crate::theme::ThemeChoice;

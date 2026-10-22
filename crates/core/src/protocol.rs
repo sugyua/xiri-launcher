@@ -15,7 +15,10 @@ use crate::status::Installed;
 /// Asks the backend to do something. Results arrive later as [`Event`]s.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Command {
-    Associate { app: String, path: String },
+    Associate {
+        app: String,
+        path: String,
+    },
     /// Look up the latest releases. `force` skips the freshness window (the user pressed Refresh).
     CheckForUpdates {
         force: bool,
@@ -176,8 +179,14 @@ impl Source {
 /// Something the backend wants the UI to know.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
-    AppIcon { app: String, bytes: Vec<u8> },
-    CatalogLoaded { apps: Vec<crate::xiri::AppInfo>, warning: Option<String> },
+    AppIcon {
+        app: String,
+        bytes: Vec<u8>,
+    },
+    CatalogLoaded {
+        apps: Vec<crate::xiri::AppInfo>,
+        warning: Option<String>,
+    },
     Latest {
         app: String,
         latest: LatestRelease,
@@ -257,8 +266,12 @@ pub struct Capabilities {
 
 /// The UI's view of a backend.
 pub trait Backend {
-    fn dynamic_catalog(&self) -> bool { false }
-    fn catalog(&self) -> Vec<crate::xiri::AppInfo> { crate::SUITE.iter().map(crate::xiri::AppInfo::from).collect() }
+    fn dynamic_catalog(&self) -> bool {
+        false
+    }
+    fn catalog(&self) -> Vec<crate::xiri::AppInfo> {
+        crate::SUITE.iter().map(crate::xiri::AppInfo::from).collect()
+    }
     fn send(&mut self, command: Command);
     /// Events since the last call, oldest first.
     fn poll(&mut self) -> Vec<Event>;

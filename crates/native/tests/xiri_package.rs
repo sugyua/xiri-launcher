@@ -1,11 +1,14 @@
 #![cfg(windows)]
+use std::io::{Cursor, Write};
 use xiri_launcher_native::xiri_package::extract_verified;
-use std::io::{Write, Cursor};
 use zip::write::SimpleFileOptions;
 
 fn archive(files: &[(&str, &[u8])]) -> Vec<u8> {
     let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
-    for (name, data) in files { writer.start_file(*name, SimpleFileOptions::default()).unwrap(); writer.write_all(data).unwrap(); }
+    for (name, data) in files {
+        writer.start_file(*name, SimpleFileOptions::default()).unwrap();
+        writer.write_all(data).unwrap();
+    }
     writer.finish().unwrap().into_inner()
 }
 

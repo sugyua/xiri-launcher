@@ -1,10 +1,10 @@
 //! What the UI knows about each app.
 
+use xiri_launcher_core::Installed;
 use xiri_launcher_core::platform::{Platform, pick_asset};
 use xiri_launcher_core::protocol::{JobPhase, LatestRelease, PausedDownload};
 use xiri_launcher_core::release::Release;
 use xiri_launcher_core::status::{self, AppStatus, Latest};
-use xiri_launcher_core::Installed;
 use xiri_launcher_core::xiri::AppInfo;
 
 use crate::i18n::t;
@@ -42,14 +42,22 @@ impl AppEntry {
     pub fn has_download(&self, platform: Option<Platform>) -> bool {
         let (Some(r), Some(p)) = (self.release(), platform) else { return false };
         let stems: Vec<&str> = self.app.stems().collect();
-        if self.app.repo.starts_with("sugyua/") { p.os == xiri_launcher_core::Os::Windows && p.arch == xiri_launcher_core::Arch::X64 && xiri_launcher_core::xiri::package_asset(&self.app, r).is_some() } else { pick_asset(r, &stems, p, p.download_kinds()).is_some() }
+        if self.app.repo.starts_with("sugyua/") {
+            p.os == xiri_launcher_core::Os::Windows
+                && p.arch == xiri_launcher_core::Arch::X64
+                && xiri_launcher_core::xiri::package_asset(&self.app, r).is_some()
+        } else {
+            pick_asset(r, &stems, p, p.download_kinds()).is_some()
+        }
     }
 
     pub fn status(&self, platform: Option<Platform>, manage_apps: bool) -> AppStatus {
         if manage_apps && !self.detected {
             return AppStatus::Checking;
         }
-        if self.app.repo.starts_with("sugyua/") && self.installed.is_some() && self.release().is_some() && !self.has_download(platform) { return AppStatus::Installed; }
+        if self.app.repo.starts_with("sugyua/") && self.installed.is_some() && self.release().is_some() && !self.has_download(platform) {
+            return AppStatus::Installed;
+        }
         let latest = match &self.latest {
             None => Latest::Pending,
             Some(LatestRelease::Failed(_)) => Latest::Failed,

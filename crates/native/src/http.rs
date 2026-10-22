@@ -4,8 +4,8 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicU8, Ordering};
 
-use xiri_launcher_core::protocol::{CANCELLED, PAUSED};
 use std::time::Duration;
+use xiri_launcher_core::protocol::{CANCELLED, PAUSED};
 
 use sha2::{Digest, Sha256};
 
@@ -51,21 +51,36 @@ pub struct FeedError {
 
 impl Http {
     /// Xiri downloads pin each redirect before transferring executable packages.
-    pub fn xiri() -> Result<Self,String> {
-        let mut http=Self::new()?;
-        let tls=ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
-        http.download=ureq::Agent::config_builder().tls_config(tls).proxy(crate::proxy::pick())
-            .timeout_connect(Some(Duration::from_secs(20))).timeout_recv_response(Some(Duration::from_secs(60)))
-            .timeout_recv_body(Some(ATTEMPT_BODY_TIME)).http_status_as_error(false).user_agent(USER_AGENT)
-            .max_redirects(0).max_redirects_will_error(false).build().new_agent();
+    pub fn xiri() -> Result<Self, String> {
+        let mut http = Self::new()?;
+        let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
+        http.download = ureq::Agent::config_builder()
+            .tls_config(tls)
+            .proxy(crate::proxy::pick())
+            .timeout_connect(Some(Duration::from_secs(20)))
+            .timeout_recv_response(Some(Duration::from_secs(60)))
+            .timeout_recv_body(Some(ATTEMPT_BODY_TIME))
+            .http_status_as_error(false)
+            .user_agent(USER_AGENT)
+            .max_redirects(0)
+            .max_redirects_will_error(false)
+            .build()
+            .new_agent();
         Ok(http)
     }
-    pub fn pinned_release_url(&self,repo:&str,url:&str)->Result<String,String> {
-        if !xiri_launcher_core::release::download_url_under(url,&xiri_launcher_core::release::download_prefix(repo)) {return Err("Origem de download inválida".into());}
-        let mut current=url.to_string();
+    pub fn pinned_release_url(&self, repo: &str, url: &str) -> Result<String, String> {
+        if !xiri_launcher_core::release::download_url_under(url, &xiri_launcher_core::release::download_prefix(repo)) {
+            return Err("Origem de download inválida".into());
+        }
+        let mut current = url.to_string();
         for _ in 0..5 {
-            if !xiri_launcher_core::xiri::trusted_download_url(&current,repo) {return Err("Redirecionamento fora do GitHub autorizado".into());}
-            match self.redirect_target(&current)? {Some(next)=>current=next,None=>return Ok(current)}
+            if !xiri_launcher_core::xiri::trusted_download_url(&current, repo) {
+                return Err("Redirecionamento fora do GitHub autorizado".into());
+            }
+            match self.redirect_target(&current)? {
+                Some(next) => current = next,
+                None => return Ok(current),
+            }
         }
         Err("Redirecionamentos demais".into())
     }

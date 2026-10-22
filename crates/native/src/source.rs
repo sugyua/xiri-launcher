@@ -9,9 +9,9 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, PoisonError};
 
+use serde::{Deserialize, Serialize};
 use xiri_launcher_core::protocol::{LatestRelease, Source};
 use xiri_launcher_core::release::{self, Release};
-use serde::{Deserialize, Serialize};
 
 use crate::http::{Fetched, Http};
 
