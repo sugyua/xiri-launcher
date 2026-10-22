@@ -545,14 +545,14 @@ fn icon_link(ui: &mut Ui, size: f32, link: &IconLink<'_>) {
 }
 
 /// An app's name as the site sets it: Archivo, with "Craft" in the app's colour.
-pub fn wordmark(ui: &mut Ui, app: &xiri_launcher_core::CraftApp, size: f32) -> Response {
+pub fn wordmark(ui: &mut Ui, app: &xiri_launcher_core::xiri::AppInfo, size: f32) -> Response {
     wordmark_in(ui, app, size, true)
 }
 
 /// [`wordmark`], with "Craft" in the app's colour or, when `in_colour` is false, in grey.
-pub fn wordmark_in(ui: &mut Ui, app: &xiri_launcher_core::CraftApp, size: f32, in_colour: bool) -> Response {
+pub fn wordmark_in(ui: &mut Ui, app: &xiri_launcher_core::xiri::AppInfo, size: f32, in_colour: bool) -> Response {
     let t = Tokens::get(ui.ctx());
-    let (prefix, craft) = app.name.strip_suffix("Craft").map_or((app.name, ""), |p| (p, "Craft"));
+    let (prefix, craft) = app.name.strip_suffix("Craft").map_or((app.name.as_str(), ""), |p| (p, "Craft"));
     let mut job = egui::text::LayoutJob::default();
     let format = |color| egui::TextFormat {
         font_id: egui::FontId::new(size, theme::display()),

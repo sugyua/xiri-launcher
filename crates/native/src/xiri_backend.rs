@@ -70,6 +70,7 @@ impl XiriBackend {
         Self { shared }
     }
     fn check(&self) {
+        if self.shared.root.as_os_str().is_empty() { return; }
         if self.shared.checking.swap(true, Ordering::SeqCst) { return; }
         let shared = self.shared.clone();
         std::thread::spawn(move || {
@@ -103,6 +104,7 @@ impl XiriBackend {
         });
     }
     fn run_job(&self, id: String, operation: impl FnOnce(&Arc<Shared>, &str, &Stop) -> Result<String, String> + Send + 'static) {
+        if self.shared.root.as_os_str().is_empty() || !xiri_launcher_core::xiri::valid_entry_path(&id) || id.contains('/') { self.shared.emit(Event::JobFinished {app:id,result:Err("Pasta ou identificador inválido".into())}); return; }
         let stop = Arc::new(Stop::default());
         {
             let mut jobs = self.shared.jobs.lock().unwrap_or_else(PoisonError::into_inner);
@@ -168,7 +170,7 @@ fn install(shared: &Arc<Shared>, id: &str, stop: &Stop) -> Result<String, String
     let http = Http::new()?;
     let sums_asset = release.assets.iter().find(|a| a.name == "SHA256SUMS.txt").ok_or("Checksum não publicado")?;
     let sums = http.get_text(&sums_asset.url)?.ok_or("Arquivo de checksums ausente")?;
-    let hash = xiri_launcher_core::release::parse_sha256sums(&sums).into_iter().find(|(name,_)| name == &asset.name).map(|(_,hash)| hash).ok_or("Pacote não consta no SHA256SUMS.txt")?;
+    let hash = xiri_launcher_core::release::parse_sha256sums(&sums).into_iter().find(|(_,name)| name == &asset.name).map(|(hash,_)| hash).ok_or("Pacote não consta no SHA256SUMS.txt")?;
     let download = shared.root.join("downloads").join(format!("{id}-{hash}.zip"));
     shared.emit(Event::Progress {app: id.into(), phase: JobPhase::Downloading {done:0,total:asset.size}});
     http.download(&asset.url, &download, asset.size, &hash, stop, &mut |progress| {

@@ -311,26 +311,11 @@ impl LauncherUi {
             let short = fmt(tl!("GitHub limit hit; back in {min} min"), &[("min", &min)]);
             (format!("· {full}"), format!("· {short}"))
         });
-        use xiri_launcher_core::catalog::{GITHUB_URL, SOCIAL, WEBSITE_URL};
+        use xiri_launcher_core::catalog::GITHUB_URL;
         // Every link is an icon, reading Website, GitHub, Discord, then the social accounts.
         let named =
             |name: &'static str, label: &str, url: &'static str| widgets::IconLink { name, label: label.to_string(), tip: label.to_string(), url };
-        let mut links = vec![
-            named("Website", tl!("Website"), WEBSITE_URL),
-            named("GitHub", tl!("GitHub"), GITHUB_URL),
-            widgets::IconLink {
-                name: "Discord",
-                label: tl!("Discord").to_string(),
-                tip: tl!("Join the ArtCraft community on Discord").to_string(),
-                url: self.discord_url,
-            },
-        ];
-        links.extend(SOCIAL.iter().map(|(name, url)| widgets::IconLink {
-            name,
-            label: (*name).to_string(),
-            tip: fmt(tl!("ArtCraft on {name}"), &[("name", name)]),
-            url,
-        }));
+        let links = vec![named("GitHub", tl!("GitHub"), GITHUB_URL)];
         let icon = 13.0;
         let spacing = ui.spacing().item_spacing.x;
         // The icons on the right keep their size; the status on the left gets what is left and
@@ -631,7 +616,7 @@ impl LauncherUi {
                                     // Name and tagline as one block, centred on the icon.
                                     let block = title_h + GAP + tagline_h;
                                     ui.add_space(((ui.available_height() - block) / 2.0).max(0.0));
-                                    widgets::wordmark_in(ui, entry.app, TITLE_SIZE, installed);
+                                    widgets::wordmark_in(ui, &entry.app, TITLE_SIZE, installed);
                                     ui.add(
                                         egui::Label::new(
                                             RichText::new(tr_ctx(current(), &entry.app.id, &entry.app.tagline)).size(TAGLINE_SIZE).color(t.muted),
@@ -658,7 +643,7 @@ impl LauncherUi {
                                 let mut mono = |text: String, color| ui.label(RichText::new(text).family(egui::FontFamily::Monospace).color(color));
                                 match (status == AppStatus::UpdateAvailable).then(|| entry.installed_label().zip(entry.latest_label())).flatten() {
                                     Some((from, to)) => {
-                                        mono(format!("{from} → {to}"), t.app_ink(entry.app));
+                                        mono(format!("{from} → {to}"), t.app_ink(&entry.app));
                                     }
                                     None => match (entry.installed_label(), entry.latest_label()) {
                                         (Some(installed), _) => {
