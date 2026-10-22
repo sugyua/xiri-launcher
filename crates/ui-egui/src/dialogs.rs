@@ -29,11 +29,11 @@ impl LauncherUi {
         let response = match &mut dialog {
             Dialog::Associate(id) => modal.show(ctx, |ui| {
                 ui.label(tl!("Select an EXE or PowerShell program to associate with this repository."));
-                if ui.button(tl!("Choose program…")).clicked() {
-                    if let Some(path) = host.pick_program() {
-                        self.send(Command::Associate { app: id.clone(), path });
-                        close = true;
-                    }
+                if ui.button(tl!("Choose program…")).clicked()
+                    && let Some(path) = host.pick_program()
+                {
+                    self.send(Command::Associate { app: id.clone(), path });
+                    close = true;
                 }
             }),
             Dialog::Notes(id) => modal.show(ctx, |ui| close = self.notes_dialog(ui, id)),
@@ -111,7 +111,7 @@ impl LauncherUi {
         ui.set_width(size.x);
         ui.set_max_height(size.y);
         let date = release.published_at.map(|d| fmt(tl!("Released {date}"), &[("date", &crate::views::date_text(d))])).unwrap_or_default();
-        let hero_h = crate::sheet::hero(ui, crate::icons::app(id), &format!("{} {}", &entry.app.name, release.version_label()), &date, |_| {});
+        let hero_h = crate::sheet::hero(ui, crate::icons::app(id), &format!("{} {}", entry.app.name, release.version_label()), &date, |_| {});
         let footer_h = theme::CONTROL_H + 32.0;
         let body_h = (size.y - hero_h - footer_h - 2.0).max(0.0);
         let saved = crate::sheet::accent_scroll(ui, &t, t.accent);

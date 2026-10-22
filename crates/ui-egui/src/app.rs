@@ -286,11 +286,11 @@ impl LauncherUi {
     }
 
     pub(crate) fn entry(&self, id: &str) -> Option<&AppEntry> {
-        self.entries.iter().find(|e| &e.app.id == id)
+        self.entries.iter().find(|e| e.app.id == id)
     }
 
     fn entry_mut(&mut self, id: &str) -> Option<&mut AppEntry> {
-        self.entries.iter_mut().find(|e| &e.app.id == id)
+        self.entries.iter_mut().find(|e| e.app.id == id)
     }
 
     pub(crate) fn configure(&mut self) {
@@ -385,7 +385,7 @@ impl LauncherUi {
                 self.entries = apps
                     .into_iter()
                     .map(|app| {
-                        if let Some(index) = old.iter().position(|e| &e.app.id == &app.id) {
+                        if let Some(index) = old.iter().position(|e| e.app.id == app.id) {
                             let mut entry = old.remove(index);
                             entry.app = std::sync::Arc::new(app);
                             entry

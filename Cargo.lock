@@ -276,7 +276,7 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 
 [[package]]
 name = "xiri-launcher"
-version = "0.7.0"
+version = "0.1.0-beta.1"
 dependencies = [
  "xiri-launcher-core",
  "xiri-launcher-native",
@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "xiri-launcher-core"
-version = "0.7.0"
+version = "0.1.0-beta.1"
 dependencies = [
  "jiff",
  "semver",
@@ -311,7 +311,7 @@ dependencies = [
 
 [[package]]
 name = "xiri-launcher-native"
-version = "0.7.0"
+version = "0.1.0-beta.1"
 dependencies = [
  "xiri-launcher-core",
  "dirs 6.0.0",
@@ -333,7 +333,7 @@ dependencies = [
 
 [[package]]
 name = "xiri-launcher-ui-egui"
-version = "0.7.0"
+version = "0.1.0-beta.1"
 dependencies = [
  "xiri-launcher-core",
  "egui",
@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "xiri-launcher-web"
-version = "0.7.0"
+version = "0.1.0-beta.1"
 dependencies = [
  "xiri-launcher-core",
  "xiri-launcher-ui-egui",
@@ -360,6 +360,7 @@ dependencies = [
  "egui",
  "js-sys",
  "log",
+ "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
