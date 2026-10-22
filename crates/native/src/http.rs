@@ -50,6 +50,25 @@ pub struct FeedError {
 }
 
 impl Http {
+    /// Xiri downloads pin each redirect before transferring executable packages.
+    pub fn xiri() -> Result<Self,String> {
+        let mut http=Self::new()?;
+        let tls=ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
+        http.download=ureq::Agent::config_builder().tls_config(tls).proxy(crate::proxy::pick())
+            .timeout_connect(Some(Duration::from_secs(20))).timeout_recv_response(Some(Duration::from_secs(60)))
+            .timeout_recv_body(Some(ATTEMPT_BODY_TIME)).http_status_as_error(false).user_agent(USER_AGENT)
+            .max_redirects(0).max_redirects_will_error(false).build().new_agent();
+        Ok(http)
+    }
+    pub fn pinned_release_url(&self,repo:&str,url:&str)->Result<String,String> {
+        if !xiri_launcher_core::release::download_url_under(url,&xiri_launcher_core::release::download_prefix(repo)) {return Err("Origem de download inválida".into());}
+        let mut current=url.to_string();
+        for _ in 0..5 {
+            if !xiri_launcher_core::xiri::trusted_download_url(&current,repo) {return Err("Redirecionamento fora do GitHub autorizado".into());}
+            match self.redirect_target(&current)? {Some(next)=>current=next,None=>return Ok(current)}
+        }
+        Err("Redirecionamentos demais".into())
+    }
     pub fn new() -> Result<Self, String> {
         // The OS checks each certificate chain itself: Windows fetches roots it hasn't stored yet
         // and trusts what antivirus HTTPS scanning installs. Reading the store ourselves missed

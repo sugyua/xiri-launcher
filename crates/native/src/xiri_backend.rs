@@ -21,6 +21,7 @@ struct Shared {
     jobs: Mutex<BTreeMap<String, Arc<Stop>>>,
     processes: Mutex<BTreeMap<String, std::process::Child>>,
     checking: AtomicBool,
+    warning: Mutex<Option<String>>,
     wake: Box<dyn Fn() + Send + Sync>,
     root: PathBuf,
 }
@@ -50,6 +51,8 @@ impl Shared {
         for app in apps { self.emit(Event::Detected { app: app.id.clone(), installed: installed.get(&app.id).filter(|l| Path::new(&l.installed.location).is_file()).map(|l| l.installed.clone()) }); }
     }
     fn catalog_event(&self, warning: Option<String>) {
+        if warning.is_some() { *self.warning.lock().unwrap_or_else(PoisonError::into_inner) = warning; }
+        let warning = self.warning.lock().unwrap_or_else(PoisonError::into_inner).clone();
         let mut apps = self.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone();
         for local in self.installed.lock().unwrap_or_else(PoisonError::into_inner).values() {
             if !apps.iter().any(|a| a.id == local.app.id) { apps.push(local.app.clone()); }
@@ -71,7 +74,12 @@ impl XiriBackend {
         let root = root.unwrap_or_default();
         let shared = Arc::new(Shared { events: Mutex::new(Vec::new()), catalog: Mutex::new(if failure {CatalogCache::default()} else {read_json(&root.join("catalog-xiri.json"))}),
             installed: Mutex::new(if failure {BTreeMap::new()} else {read_json(&root.join("installed-xiri.json"))}), releases: Mutex::new(BTreeMap::new()), jobs: Mutex::new(BTreeMap::new()),
-            processes: Mutex::new(BTreeMap::new()), checking: AtomicBool::new(false), wake: Box::new(wake), root });
+            processes: Mutex::new(BTreeMap::new()), checking: AtomicBool::new(false), warning: Mutex::new(None), wake: Box::new(wake), root });
+        {
+            let mut cache = shared.catalog.lock().unwrap_or_else(PoisonError::into_inner);
+            cache.apps.retain(AppInfo::trusted);
+            cache.apps.truncate(2000);
+        }
         shared.catalog_event(if failure {Some("Pasta de dados do Windows indisponível".into())} else {None});
         Self { shared }
     }
@@ -88,6 +96,7 @@ impl XiriBackend {
                         let bytes = serde_json::to_vec(&next).map_err(|e| e.to_string())?;
                         crate::paths::write_atomic(&shared.root.join("catalog-xiri.json"), &bytes)?;
                         *shared.catalog.lock().unwrap_or_else(PoisonError::into_inner) = next;
+                        *shared.warning.lock().unwrap_or_else(PoisonError::into_inner) = None;
                         shared.catalog_event(None);
                     },
                     Err(e) => shared.catalog_event(Some(e)),
@@ -132,6 +141,7 @@ impl XiriBackend {
 
 fn associate(shared: &Arc<Shared>, id: &str, path: &str) -> Result<String, String> {
     let app = shared.app(id).ok_or("Aplicativo desconhecido")?;
+    if !app.trusted() { return Err("Repositório fora do perfil sugyua".into()); }
     let target = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
     if !target.is_file() { return Err("Selecione um arquivo EXE ou PS1".into()); }
     let kind = match target.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
@@ -171,17 +181,19 @@ fn launch(shared: &Arc<Shared>, id: &str) -> Result<String, String> {
 fn install(shared: &Arc<Shared>, id: &str, stop: &Stop) -> Result<String, String> {
     if shared.busy(id) { return Err("Feche o programa antes de atualizar".into()); }
     let app = shared.app(id).ok_or("Aplicativo desconhecido")?;
+    if !app.trusted() {return Err("Repositório fora do perfil sugyua".into());}
     let release = shared.releases.lock().unwrap_or_else(PoisonError::into_inner).get(id).cloned().ok_or("Sem release disponível")?;
     let asset = package_asset(&app, &release).ok_or("Pacote incompatível: requer manifesto, ZIP e SHA256SUMS.txt")?;
     if asset.size == 0 || asset.size > 2 * 1024 * 1024 * 1024 { return Err("Tamanho de pacote inválido".into()); }
     if !xiri_launcher_core::release::download_url_under(&asset.url, &xiri_launcher_core::release::download_prefix(&app.repo)) { return Err("Origem do pacote não autorizada".into()); }
-    let http = Http::new()?;
+    let http = Http::xiri()?;
     let sums_asset = release.assets.iter().find(|a| a.name == "SHA256SUMS.txt").ok_or("Checksum não publicado")?;
     let sums = http.get_text(&sums_asset.url)?.ok_or("Arquivo de checksums ausente")?;
     let hash = xiri_launcher_core::release::parse_sha256sums(&sums).into_iter().find(|(_,name)| name == &asset.name).map(|(hash,_)| hash).ok_or("Pacote não consta no SHA256SUMS.txt")?;
     let download = shared.root.join("downloads").join(format!("{id}-{hash}.zip"));
     shared.emit(Event::Progress {app: id.into(), phase: JobPhase::Downloading {done:0,total:asset.size}});
-    let download_result = http.download(&asset.url, &download, asset.size, &hash, stop, &mut |progress| {
+    let pinned_url=http.pinned_release_url(&app.repo,&asset.url)?;
+    let download_result = http.download(&pinned_url, &download, asset.size, &hash, stop, &mut |progress| {
         if let Transfer::Bytes {done,total} = progress { shared.emit(Event::Progress {app: id.into(), phase: JobPhase::Downloading {done,total}}); }
     });
     if download_result.as_ref().is_err_and(|e|e==xiri_launcher_core::protocol::PAUSED) {
@@ -243,4 +255,36 @@ impl Backend for XiriBackend {
     fn capabilities(&self) -> Capabilities { Capabilities {manage_apps:cfg!(all(windows,target_arch="x86_64")),reveal_label:"Show in file manager",self_update:false} }
     fn platform(&self) -> Option<Platform> { Some(Platform {os:Os::Windows,arch:Arch::X64}) }
     fn now(&self) -> i64 { crate::now() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn shared(root: &Path) -> Arc<Shared> {
+        Arc::new(Shared {events:Mutex::new(Vec::new()),catalog:Mutex::new(CatalogCache::default()),installed:Mutex::new(BTreeMap::new()),releases:Mutex::new(BTreeMap::new()),jobs:Mutex::new(BTreeMap::new()),processes:Mutex::new(BTreeMap::new()),checking:AtomicBool::new(false),warning:Mutex::new(None),wake:Box::new(||{}),root:root.into()})
+    }
+    fn local(path: &Path) -> LocalApp {
+        let mut app=AppInfo::from(&xiri_launcher_core::SUITE[0]);
+        app.id="sensor-panel".into();app.repo="sugyua/sensor-panel".into();
+        LocalApp {app,installed:Installed {version:None,source:InstallSource::Binary,location:path.to_string_lossy().into(),package:None},entry:PackageEntry {kind:EntryKind::Exe,path:"app.exe".into()},managed:false}
+    }
+    #[test]
+    fn failed_state_write_preserves_the_previous_installation() {
+        let dir=tempfile::tempdir().unwrap();
+        let blocked=dir.path().join("file");std::fs::write(&blocked,b"not a directory").unwrap();
+        let shared=shared(&blocked);let old=local(&blocked);
+        shared.installed.lock().unwrap().insert("sensor-panel".into(),old);
+        assert!(shared.commit_local("sensor-panel",None).is_err());
+        assert!(shared.installed.lock().unwrap().contains_key("sensor-panel"));
+    }
+    #[test]
+    fn missing_remote_repository_keeps_local_launch_metadata_and_offline_warning() {
+        let dir=tempfile::tempdir().unwrap();let target=dir.path().join("app.exe");std::fs::write(&target,b"fixture").unwrap();
+        let shared=shared(dir.path());shared.commit_local("sensor-panel",Some(local(&target))).unwrap();
+        shared.catalog_event(Some("offline".into()));shared.catalog_event(None);
+        let events=shared.events.lock().unwrap();
+        assert!(events.iter().any(|event|matches!(event,Event::CatalogLoaded {apps,warning} if apps.len()==1 && warning.as_deref()==Some("offline"))));
+        assert!(events.iter().any(|event|matches!(event,Event::Detected {app,installed:Some(_)} if app=="sensor-panel")));
+        assert!(target.exists());
+    }
 }

@@ -21,6 +21,7 @@ pub struct AppInfo {
 }
 
 impl AppInfo {
+    pub fn trusted(&self) -> bool { valid_entry_path(&self.id) && !self.id.contains('/') && self.repo.eq_ignore_ascii_case(&format!("{OWNER}/{}",self.id)) }
     pub fn repo_url(&self) -> String { format!("https://github.com/{}", self.repo) }
     pub fn releases_url(&self) -> String { format!("{}/releases", self.repo_url()) }
     pub fn website(&self) -> String { self.repo_url() }
@@ -125,4 +126,15 @@ pub fn package_asset<'a>(app: &AppInfo, release: &'a crate::Release) -> Option<&
     let checksum = release.assets.iter().any(|a| a.name == "SHA256SUMS.txt");
     if !checksum || app.manifest_error.is_some() { return None; }
     release.assets.iter().find(|a| a.name == windows.asset)
+}
+
+pub fn trusted_download_url(url: &str, repo: &str) -> bool {
+    if url.len()>16_384 || url.chars().any(|c|c.is_whitespace() || c.is_control()) || url.contains('\\') {return false;}
+    let Some(rest)=url.strip_prefix("https://") else {return false};
+    let host=rest.split(['/', '?', '#']).next().unwrap_or("");
+    match host {
+        "github.com" => crate::release::download_url_under(url,&crate::release::download_prefix(repo)),
+        "release-assets.githubusercontent.com" | "objects.githubusercontent.com" | "github-releases.githubusercontent.com" => true,
+        _ => false,
+    }
 }

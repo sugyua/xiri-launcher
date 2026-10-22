@@ -877,7 +877,7 @@ impl LauncherUi {
                     ui.close();
                 }
                 ui.separator();
-                if ui.button(RichText::new(tl!("Uninstall…")).color(Tokens::get(ui.ctx()).bad)).clicked() {
+                if ui.button(RichText::new(if self.dynamic_catalog {tl!("Remove from library…")} else {tl!("Uninstall…")}).color(Tokens::get(ui.ctx()).bad)).clicked() {
                     self.dialog = Some(Dialog::ConfirmUninstall(id.clone()));
                     ui.close();
                 }

@@ -3,10 +3,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use xiri_launcher_core::details::{AppDetails, MAX_SCREENSHOT_BYTES, looks_like_jpeg};
 use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, LatestRelease, Origin, Source};
 use xiri_launcher_core::release::{self, Release};
-use xiri_launcher_core::{Arch, Os, Platform, SUITE, catalog, version};
+use xiri_launcher_core::{Arch, Os, Platform};
+use xiri_launcher_core::xiri::{AppInfo,Repository,parse_manifest,catalog};
 use xiri_launcher_ui_egui::{Host, LauncherUi, Settings, i18n};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -128,130 +128,62 @@ impl eframe::App for WebApp {
 }
 
 struct WebBackend {
-    events: Rc<RefCell<Vec<Event>>>,
-    ctx: egui::Context,
-    platform: Option<Platform>,
-    checking: Rc<RefCell<bool>>,
-    prereleases: bool,
-    /// Apps whose details pictures are on their way (a second request meanwhile does nothing).
-    pictures_busy: Rc<RefCell<std::collections::HashSet<&'static str>>>,
+    events: Rc<RefCell<Vec<Event>>>, ctx: egui::Context, platform: Option<Platform>, checking: Rc<RefCell<bool>>,
 }
-
 impl WebBackend {
-    fn new(ctx: egui::Context) -> Self {
-        Self { events: Rc::default(), ctx, platform: visitor_platform(), checking: Rc::default(), prereleases: false, pictures_busy: Rc::default() }
-    }
-
-    /// Fetches the pictures of an app's details page, lead first. The browser keeps them in its own
-    /// cache, so there is nothing to save here.
-    fn fetch_screenshots(&self, app: &str) {
-        let Some(details) = AppDetails::by_id(app) else { return };
-        if !self.pictures_busy.borrow_mut().insert(details.id) {
-            return;
-        }
-        let (events, ctx, busy) = (self.events.clone(), self.ctx.clone(), self.pictures_busy.clone());
-        wasm_bindgen_futures::spawn_local(async move {
-            // Once the network has failed the rest would fail the same way: say so at once.
-            let mut offline: Option<String> = None;
-            for shot in details.shots {
-                let result = match (&offline, details.screenshot_url(shot.key)) {
-                    (Some(why), _) => Err(why.clone()),
-                    (None, Some(url)) => picture(&url).await.map_err(|failure| match failure {
-                        PictureError::Network(why) => {
-                            offline = Some(why.clone());
-                            why
-                        }
-                        PictureError::Picture(why) => why,
-                    }),
-                    (None, None) => Err("this page has no such picture".to_string()),
-                };
-                events.borrow_mut().push(Event::Screenshot { app: details.id.to_string(), key: shot.key.to_string(), result });
-                ctx.request_repaint();
-            }
-            busy.borrow_mut().remove(details.id);
-        });
-    }
-
+    fn new(ctx: egui::Context) -> Self {Self {events:Rc::default(),ctx,platform:visitor_platform(),checking:Rc::default()}}
     fn check(&self) {
-        if self.checking.replace(true) {
-            return;
-        }
-        let events = self.events.clone();
-        let ctx = self.ctx.clone();
-        let checking = self.checking.clone();
-        let pre = self.prereleases;
+        if self.checking.replace(true) {return;}
+        let events=self.events.clone();let ctx=self.ctx.clone();let checking=self.checking.clone();
         wasm_bindgen_futures::spawn_local(async move {
             events.borrow_mut().push(Event::CheckStarted);
-            let mut limited = None;
-            for app in &SUITE {
-                let latest = latest(app.repo, pre).await;
-                if let Err(Some(reset)) = &latest {
-                    limited = Some(*reset);
-                }
-                let latest = latest.unwrap_or_else(|e| {
-                    LatestRelease::Failed(if e.is_some() { "GitHub's hourly limit was reached".into() } else { "couldn't reach GitHub".into() })
-                });
-                events.borrow_mut().push(Event::Latest { app: app.id.to_string(), latest, from: Origin::GitHub });
-                ctx.request_repaint();
+            match public_catalog().await {
+                Ok(apps)=>{
+                    events.borrow_mut().push(Event::CatalogLoaded {apps:apps.clone(),warning:None});ctx.request_repaint();
+                    for app in apps {
+                        let latest=latest(&app.repo,false).await.unwrap_or_else(|_|LatestRelease::Failed("GitHub indisponível ou limite de consultas atingido".into()));
+                        events.borrow_mut().push(Event::Latest {app:app.id,latest,from:Origin::GitHub});ctx.request_repaint();
+                    }
+                },
+                Err(error)=>events.borrow_mut().push(Event::CatalogLoaded {apps:Vec::new(),warning:Some(error)}),
             }
-            if let Ok(LatestRelease::Found(r)) = latest(catalog::LAUNCHER_REPO, false).await
-                && let (Some(l), Some(c)) = (r.version.as_ref(), version::parse(env!("CARGO_PKG_VERSION")))
-                && version::is_newer(l, &c)
-            {
-                events.borrow_mut().push(Event::LauncherUpdate(r));
-            }
-            let at = (js_sys::Date::now() / 1000.0) as i64;
-            events.borrow_mut().push(Event::CheckFinished { at, source: Source::GitHubApi, rate_limited_until: limited });
-            *checking.borrow_mut() = false;
-            ctx.request_repaint();
+            events.borrow_mut().push(Event::CheckFinished {at:(js_sys::Date::now()/1000.0) as i64,source:Source::GitHubApi,rate_limited_until:None});
+            *checking.borrow_mut()=false;ctx.request_repaint();
         });
     }
 }
-
-/// Why a picture couldn't be had.
-enum PictureError {
-    /// This picture only: it isn't published, or what came back isn't a picture.
-    Picture(String),
-    /// The network or the server: the other pictures would fail the same way.
-    Network(String),
+async fn text(url:&str,max:usize)->Result<Option<String>,String> {
+    let window=web_sys::window().ok_or("Navegador indisponível")?;
+    let request=web_sys::Request::new_with_str(url).map_err(|_|"URL inválida")?;
+    let response:web_sys::Response=JsFuture::from(window.fetch_with_request(&request)).await.map_err(|_|"Sem conexão")?.dyn_into().map_err(|_|"Resposta inválida")?;
+    if response.status()==404 {return Ok(None);}
+    if response.status()!=200 {return Err(format!("GitHub retornou HTTP {}",response.status()));}
+    if response.headers().get("content-length").ok().flatten().and_then(|s|s.parse::<usize>().ok()).is_some_and(|n|n>max) {return Err("Resposta grande demais".into());}
+    let text=JsFuture::from(response.text().map_err(|_|"Resposta ilegível")?).await.map_err(|_|"Resposta ilegível")?.as_string().ok_or("Resposta inválida")?;
+    if text.len()>max {return Err("Resposta grande demais".into());}
+    Ok(Some(text))
+}
+async fn public_catalog()->Result<Vec<AppInfo>,String> {
+    let mut rows=Vec::new();let mut complete=false;
+    for page in 1..=20 {
+        let body=text(&format!("https://api.github.com/users/sugyua/repos?per_page=100&page={page}"),4*1024*1024).await?.ok_or("Perfil não encontrado")?;
+        let page:Vec<Repository>=serde_json::from_str(&body).map_err(|e|e.to_string())?;
+        let done=page.len()<100;rows.extend(page);if done {complete=true;break;}
+    }
+    if !complete {return Err("O catálogo excede 2.000 repositórios".into());}
+    let mut apps=catalog(rows);
+    for app in &mut apps {
+        match text(&format!("https://raw.githubusercontent.com/{}/HEAD/xiri.json",app.repo),65536).await {
+            Ok(Some(body))=>match parse_manifest(body.as_bytes()) {
+                Ok(manifest)=>{if let Some(title)=&manifest.title {app.name=title.clone();}if let Some(description)=&manifest.description {app.tagline=description.clone();}app.manifest=Some(manifest);},
+                Err(error)=>app.manifest_error=Some(error),
+            },
+            Ok(None)=>{},Err(error)=>app.manifest_error=Some(error),
+        }
+    }
+    apps.retain(|a|a.manifest.as_ref().is_none_or(|m|m.visible));Ok(apps)
 }
 
-/// One picture of a details page. The size cap is checked on the announced length first and again
-/// on what arrived; the bytes must start like a JPEG.
-async fn picture(url: &str) -> Result<Vec<u8>, PictureError> {
-    let offline = |what: &str| PictureError::Network(format!("couldn't load a picture ({what})"));
-    let window = web_sys::window().ok_or_else(|| offline("no window"))?;
-    let init = web_sys::RequestInit::new();
-    init.set_method("GET");
-    init.set_mode(web_sys::RequestMode::Cors);
-    let request = web_sys::Request::new_with_str_and_init(url, &init).map_err(|_| offline("bad request"))?;
-    let resp: web_sys::Response = JsFuture::from(window.fetch_with_request(&request))
-        .await
-        .map_err(|_| offline("no connection"))?
-        .dyn_into()
-        .map_err(|_| offline("no answer"))?;
-    match resp.status() {
-        200 => {}
-        404 => return Err(PictureError::Picture("this picture isn't published".into())),
-        status => return Err(PictureError::Network(format!("the server answered HTTP {status}"))),
-    }
-    let too_big = || PictureError::Picture(format!("a picture of more than {MAX_SCREENSHOT_BYTES} bytes"));
-    let announced = resp.headers().get("content-length").ok().flatten().and_then(|n| n.parse::<usize>().ok());
-    if announced.is_some_and(|n| n > MAX_SCREENSHOT_BYTES) {
-        return Err(too_big());
-    }
-    let buffer = JsFuture::from(resp.array_buffer().map_err(|_| offline("unreadable"))?).await.map_err(|_| offline("unreadable"))?;
-    let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
-    if bytes.len() > MAX_SCREENSHOT_BYTES {
-        return Err(too_big());
-    }
-    if !looks_like_jpeg(&bytes) {
-        return Err(PictureError::Picture("the answer isn't a JPEG picture".into()));
-    }
-    Ok(bytes)
-}
-
-/// The latest release; `Err(Some(reset))` when rate-limited, `Err(None)` on other failures.
 async fn latest(repo: &str, prereleases: bool) -> Result<LatestRelease, Option<i64>> {
     let url = if prereleases {
         format!("https://api.github.com/repos/{repo}/releases?per_page=30")
@@ -275,6 +207,7 @@ async fn latest(repo: &str, prereleases: bool) -> Result<LatestRelease, Option<i
         _ => return Err(None),
     }
     let text = JsFuture::from(resp.text().map_err(|_| None)?).await.map_err(|_| None)?.as_string().ok_or(None)?;
+    if text.len()>4*1024*1024 {return Err(None);}
     let found: Option<Release> = if prereleases {
         release::parse_github_release_list(&text, repo, true).map_err(|_| None)?
     } else {
@@ -309,34 +242,11 @@ fn visitor_platform() -> Option<Platform> {
 }
 
 impl Backend for WebBackend {
-    fn send(&mut self, command: Command) {
-        match command {
-            Command::CheckForUpdates { .. } => self.check(),
-            Command::FetchScreenshots { app } => self.fetch_screenshots(&app),
-            Command::Configure(o) => {
-                let changed = o.prereleases != self.prereleases;
-                self.prereleases = o.prereleases;
-                if changed {
-                    self.check();
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn poll(&mut self) -> Vec<Event> {
-        std::mem::take(&mut *self.events.borrow_mut())
-    }
-
-    fn capabilities(&self) -> Capabilities {
-        Capabilities { manage_apps: false, reveal_label: "", self_update: false }
-    }
-
-    fn platform(&self) -> Option<Platform> {
-        self.platform
-    }
-
-    fn now(&self) -> i64 {
-        (js_sys::Date::now() / 1000.0) as i64
-    }
+    fn dynamic_catalog(&self)->bool {true}
+    fn catalog(&self)->Vec<AppInfo> {Vec::new()}
+    fn send(&mut self,command:Command) {if matches!(command,Command::CheckForUpdates {..}) {self.check();}}
+    fn poll(&mut self)->Vec<Event> {std::mem::take(&mut *self.events.borrow_mut())}
+    fn capabilities(&self)->Capabilities {Capabilities {manage_apps:false,reveal_label:"",self_update:false}}
+    fn platform(&self)->Option<Platform> {self.platform}
+    fn now(&self)->i64 {(js_sys::Date::now()/1000.0) as i64}
 }

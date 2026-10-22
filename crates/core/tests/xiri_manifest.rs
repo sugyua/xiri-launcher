@@ -1,6 +1,16 @@
 use xiri_launcher_core::xiri::{parse_manifest, valid_entry_path, Repository, catalog};
 
 #[test]
+fn downloads_stay_in_the_owners_release_or_githubs_asset_cdn() {
+    use xiri_launcher_core::xiri::trusted_download_url;
+    assert!(trusted_download_url("https://github.com/sugyua/sensor-panel/releases/download/v1/app.zip","sugyua/sensor-panel"));
+    assert!(trusted_download_url("https://release-assets.githubusercontent.com/a?signature=abc","sugyua/sensor-panel"));
+    for url in ["http://github.com/sugyua/sensor-panel/releases/download/v1/a.zip","https://github.com/other/app/releases/download/v1/a.zip","https://release-assets.githubusercontent.com.evil.test/a","https://release-assets.githubusercontent.com@evil.test/a","https://github.com/sugyua/sensor-panel/releases/download/../../../other/a.zip"] {
+        assert!(!trusted_download_url(url,"sugyua/sensor-panel"),"{url}");
+    }
+}
+
+#[test]
 fn package_contract_validates_explicit_entry_and_schema() {
     let m = parse_manifest(br#"{"schema_version":1,"title":"Sensor Panel","category":"program","windows":{"asset":"sensor-panel-windows-x64.zip","entry":{"kind":"powershell","path":"MinhaVersao/Painel.ps1"}}}"#).unwrap();
     assert_eq!(m.title.as_deref(), Some("Sensor Panel"));
@@ -8,6 +18,8 @@ fn package_contract_validates_explicit_entry_and_schema() {
     assert!(parse_manifest(br#"{"schema_version":2}"#).is_err());
     assert!(parse_manifest(br#"{"schema_version":1}"#).unwrap().windows.is_none());
     assert!(parse_manifest(br#"{"schema_version":1,"windows":{"asset":"x.zip","entry":{"kind":"exe","path":"../x.exe"}}}"#).is_err());
+    assert!(parse_manifest(br#"{"schema_version":1,"icon":"../icon.png"}"#).is_err());
+    assert!(parse_manifest(br#"{"schema_version":1,"icon":"icon.svg"}"#).is_err());
 }
 
 #[test]

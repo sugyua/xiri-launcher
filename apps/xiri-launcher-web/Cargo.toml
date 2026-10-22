@@ -15,6 +15,7 @@ name = "xiri-launcher-web"
 path = "src/main.rs"
 
 [dependencies]
+serde_json = { workspace = true }
 xiri-launcher-core = { workspace = true }
 xiri-launcher-ui-egui = { workspace = true }
 egui = { workspace = true }
