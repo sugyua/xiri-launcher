@@ -8,7 +8,7 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -35,7 +35,7 @@ jobs:
           Compress-Archive -Path dist/xiri/* -DestinationPath dist/xiri-launcher-windows-x64-portable.zip
           $hash = (Get-FileHash dist/xiri-launcher-windows-x64-portable.zip -Algorithm SHA256).Hash.ToLower()
           "$hash  xiri-launcher-windows-x64-portable.zip" | Set-Content dist/SHA256SUMS.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: xiri-launcher-windows-x64
           path: |
