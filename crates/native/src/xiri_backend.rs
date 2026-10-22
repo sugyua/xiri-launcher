@@ -217,6 +217,9 @@ fn associate(shared: &Arc<Shared>, id: &str, path: &str) -> Result<String, Strin
     if !app.trusted() {
         return Err("Repositório fora do perfil sugyua".into());
     }
+    #[cfg(windows)]
+    let target = dunce::canonicalize(path).map_err(|e| e.to_string())?;
+    #[cfg(not(windows))]
     let target = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
     if !target.is_file() {
         return Err("Selecione um arquivo EXE ou PS1".into());

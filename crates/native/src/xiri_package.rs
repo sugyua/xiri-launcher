@@ -67,8 +67,8 @@ pub fn validate_package(root: &Path, expected: &XiriManifest) -> Result<PathBuf,
         return Err("O contrato do pacote difere do manifesto remoto; atualize o catálogo".into());
     }
     let entry = bundled.windows.as_ref().ok_or("Sem ponto de entrada Windows")?;
-    let root = root.canonicalize().map_err(|e| e.to_string())?;
-    let target = root.join(&entry.entry.path).canonicalize().map_err(|_| "O ponto de entrada não existe no pacote")?;
+    let root = dunce::canonicalize(root).map_err(|e| e.to_string())?;
+    let target = dunce::canonicalize(root.join(&entry.entry.path)).map_err(|_| "O ponto de entrada não existe no pacote")?;
     if !target.starts_with(&root) || !target.is_file() {
         return Err("Ponto de entrada fora do pacote".into());
     }

@@ -834,9 +834,7 @@ fn links_to_the_website_github_and_each_apps_pages() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
     // Footer: website, GitHub and Discord.
-    for label in ["GitHub"] {
-        assert!(h.query_all_by_label(label).count() >= 1, "{label}");
-    }
+    assert!(h.query_all_by_label("GitHub").count() >= 1);
     // Cards: every app links to its repo and to its own page on getartcraft.com (plus the footer's).
     let shown_cards = h.query_all_by_label("GitHub").count() - 1;
     let shown_sites = h.query_all_by_label("Website").count();
@@ -1533,9 +1531,7 @@ fn the_rate_limit_notice_never_runs_under_the_footer_links() {
         assert!(notice.width() >= 120.0 && notice.right() <= width, "{width}: notice {notice:?}");
         // Everything on the footer's right: the website, GitHub and Discord icons and the social icons.
         let mut right = Vec::new();
-        for label in ["GitHub"] {
-            right.extend(h.query_all_by_label(label).map(|n| n.rect()).filter(|r| (r.center().y - notice.center().y).abs() < 12.0));
-        }
+        right.extend(h.query_all_by_label("GitHub").map(|n| n.rect()).filter(|r| (r.center().y - notice.center().y).abs() < 12.0));
         assert_eq!(right.len(), 1, "{width}: {right:?}");
         assert!(h.query_by_label_contains("Installing for").is_none(), "{width}: the footer no longer names the platform");
         for r in right {

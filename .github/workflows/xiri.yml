@@ -25,16 +25,26 @@ jobs:
       - name: Full CI
         run: cargo xtask ci
       - name: Build Windows
-        run: cargo build --release -p xiri-launcher
+        env:
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+          XIRI_LAUNCHER_REQUIRE_WINRES: 1
+        run: cargo build --release --target x86_64-pc-windows-msvc -p xiri-launcher
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory dist/xiri -Force | Out-Null
-          Copy-Item target/release/xiri-launcher.exe dist/xiri/
-          Copy-Item LICENSE-MIT,LICENSE-APACHE,NOTICE,README.md dist/xiri/
-          Compress-Archive -Path dist/xiri/* -DestinationPath dist/xiri-launcher-windows-x64-portable.zip
-          $hash = (Get-FileHash dist/xiri-launcher-windows-x64-portable.zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  xiri-launcher-windows-x64-portable.zip" | Set-Content dist/SHA256SUMS.txt
+          Copy-Item target/x86_64-pc-windows-msvc/release/xiri-launcher.exe dist/xiri/
+          Copy-Item LICENSE-MIT,LICENSE-APACHE,NOTICE,README.md,ATTRIBUTION.md dist/xiri/
+          New-Item -ItemType Directory dist/xiri/assets/fonts -Force | Out-Null
+          Copy-Item assets/fonts/OFL-*.txt dist/xiri/assets/fonts/
+          New-Item -ItemType Directory dist/xiri/docs -Force | Out-Null
+          Copy-Item docs/XIRI_MANIFEST.md,docs/VERIFICACOES.md dist/xiri/docs/
+          $version = [regex]::Match((Get-Content Cargo.toml -Raw), '(?m)^version = "([^"]+)"').Groups[1].Value
+          $name = "xiri-launcher-$version-windows-x64-portable.zip"
+          $version | Set-Content dist/xiri/VERSION -Encoding utf8NoBOM
+          Compress-Archive -Path dist/xiri/* -DestinationPath "dist/$name"
+          $hash = (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $name" | Set-Content dist/SHA256SUMS.txt -Encoding utf8NoBOM
       - uses: actions/upload-artifact@v4
         with:
           name: xiri-launcher-windows-x64

@@ -27,3 +27,14 @@ fn valid_archive_is_extracted_without_running_anything() {
     extract_verified(Cursor::new(archive(&[("bin/app.exe", b"not-an-executable")])), dir.path()).unwrap();
     assert_eq!(std::fs::read(dir.path().join("bin/app.exe")).unwrap(), b"not-an-executable");
 }
+
+#[test]
+fn powershell_entry_uses_an_ordinary_windows_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let body = br#"{"schema_version":1,"windows":{"asset":"app.zip","entry":{"kind":"powershell","path":"app.ps1"}}}"#;
+    std::fs::write(dir.path().join("xiri.json"), body).unwrap();
+    std::fs::write(dir.path().join("app.ps1"), b"# fixture, never executed").unwrap();
+    let manifest = xiri_launcher_core::xiri::parse_manifest(body).unwrap();
+    let target = xiri_launcher_native::xiri_package::validate_package(dir.path(), &manifest).unwrap();
+    assert!(!target.to_string_lossy().starts_with("\\\\?\\"));
+}
