@@ -87,8 +87,10 @@ if ($h.Machine -ne $Machine) { throw "$Exe is for machine 0x$('{0:X}' -f $h.Mach
 if ($h.Subsystem -ne 2) { throw "$Exe has PE subsystem $($h.Subsystem), expected 2 (Windows GUI)" }
 Write-Output "ok ${Exe}: $Arch, PE subsystem $($h.Subsystem)"
 
-$Stage = Join-Path $TargetDir "windows-package\$Arch"
-Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
+$Stage = [IO.Path]::GetFullPath((Join-Path $TargetDir "windows-package\$Arch"))
+$PackageTargetRoot = [IO.Path]::GetFullPath($TargetDir).TrimEnd('\') + '\'
+if (-not $Stage.StartsWith($PackageTargetRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Package stage is outside the target directory.' }
+Remove-Item -LiteralPath $Stage -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null
 Copy-Item (Join-Path $Bin $Exe) $Stage
 
@@ -102,19 +104,18 @@ Copy-Item (Join-Path $Bin $Exe) $Stage
 #     "Launcher" label and the Craft apps' icons in a hairline grid.
 #   - banner, 493x58: across the top of the inner pages. The page title is drawn over its left
 #     side, so that stays white; the right end is a dark cell with the mark.
-# The ArtCraft mark and wordmark are drawn as supplied (docs/brand/LICENSE-brand.txt).
+# The Xiri mark and vector wordmark are original fork assets (assets/xiri/).
 function New-InstallerArt([string] $BannerOut, [string] $DialogOut) {
   Add-Type -AssemblyName System.Drawing
   $ink = [System.Drawing.ColorTranslator]::FromHtml('#121316')
-  $accent = [System.Drawing.ColorTranslator]::FromHtml('#2d81ff')
+  $accent = [System.Drawing.ColorTranslator]::FromHtml('#6746d3')
   $muted = [System.Drawing.Color]::FromArgb(153, 242, 241, 238)
   $line = [System.Drawing.Color]::FromArgb(38, 242, 241, 238)
   # The Xiri App Library, in the launcher's order (crates/core/src/catalog.rs).
-  $apps = 'photocraft', 'vectorcraft', 'filmcraft', 'lightcraft', 'pdfcraft', 'effectcraft',
-    'designcraft', 'figcraft', 'wordcraft', 'soundcraft', 'deckcraft', 'cadcraft', 'gridcraft'
+  
   $mark = [System.Drawing.Image]::FromFile((Join-Path $Root 'assets\app-icon\hicolor\256x256\apps\io.github.sugyua.xiri-launcher.png'))
-  $wordmark = [System.Drawing.Image]::FromFile((Join-Path $Root 'docs\brand\artcraft-logo-white.png'))
-  $icons = $apps | ForEach-Object { [System.Drawing.Image]::FromFile((Join-Path $Root "assets\app-icons\$_.png")) }
+  $wordmark = [System.Drawing.Image]::FromFile((Join-Path $Root 'assets\xiri\logo-white.png'))
+  $icons = @()
   # The site's label face; GDI+ draws a variable font at its default instance (Regular).
   $fonts = New-Object System.Drawing.Text.PrivateFontCollection
   $fonts.AddFontFile((Join-Path $Root 'assets\fonts\GeistMono-Variable.ttf'))

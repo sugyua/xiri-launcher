@@ -167,12 +167,11 @@ impl XiriBackend {
                 let apps = shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.clone();
                 for app in apps {
                     let answer = source.latest(&app.repo, false);
-                    if let Some(icon) = app.manifest.as_ref().and_then(|m| m.icon.as_ref()) {
-                        if let Ok(Some(bytes)) = Http::new()
+                    if let Some(icon) = app.manifest.as_ref().and_then(|m| m.icon.as_ref())
+                        && let Ok(Some(bytes)) = Http::new()
                             .and_then(|http| http.get_bytes(&format!("https://raw.githubusercontent.com/{}/HEAD/{icon}", app.repo), 512 * 1024))
-                        {
-                            shared.emit(Event::AppIcon { app: app.id.clone(), bytes });
-                        }
+                    {
+                        shared.emit(Event::AppIcon { app: app.id.clone(), bytes });
                     }
                     if let LatestRelease::Found(r) = &answer.latest {
                         shared.releases.lock().unwrap_or_else(PoisonError::into_inner).insert(app.id.clone(), r.clone());

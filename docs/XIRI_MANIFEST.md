@@ -34,7 +34,7 @@ Publique uma release estável do GitHub com o ZIP nomeado em `windows.asset` e `
 ```powershell
 $file = 'meu-programa-1.0.0-windows-x64.zip'
 $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLower()
-"$hash  $file" | Set-Content SHA256SUMS.txt -Encoding utf8
+[IO.File]::WriteAllText((Join-Path $PWD 'SHA256SUMS.txt'), "$hash  $file`n", [Text.UTF8Encoding]::new($false))
 ```
 
 O ZIP deve conter o manifesto e o ponto de entrada, sem uma pasta externa adicional. O contrato Windows do manifesto incluído precisa coincidir com o contrato consultado no repositório. Se mudar o nome do asset ou a entrada, publique o novo pacote e atualize o manifesto juntos. Caso haja uma divergência temporária, o launcher recusa a instalação e pede atualização do catálogo.

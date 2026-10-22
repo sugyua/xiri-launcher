@@ -24,6 +24,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Full CI
         run: cargo xtask ci
+      - name: Render Xiri UI
+        env:
+          XIRI_LAUNCHER_SNAPSHOTS: dist/previews
+        run: cargo test -p xiri-launcher-ui-egui --test xiri_preview -- --test-threads=1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiri-interface
+          path: dist/previews/*.png
       - name: Build Windows
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
