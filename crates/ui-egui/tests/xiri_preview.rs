@@ -1,8 +1,5 @@
 //! A deterministic Xiri catalog: verify installation routing and optionally render the real UI.
-use egui_kittest::{
-    Harness,
-    kittest::{NodeT, Queryable},
-};
+use egui_kittest::{Harness, kittest::Queryable};
 use std::cell::RefCell;
 use std::rc::Rc;
 use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, LatestRelease, Origin};

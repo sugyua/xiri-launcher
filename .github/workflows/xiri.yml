@@ -35,7 +35,8 @@ jobs:
       - name: Build Windows
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
-          XIRI_LAUNCHER_REQUIRE_WINRES: 1
+          XIRI_LAUNCHER_REQUIRE_WINRES: "1"
+          XIRI_LAUNCHER_BUILD_SHA: ${{ github.sha }}
         run: cargo build --release --target x86_64-pc-windows-msvc -p xiri-launcher
       - name: Package
         shell: pwsh
@@ -64,3 +65,16 @@ jobs:
         with:
           path: target
           key: xiri-${{ runner.os }}-${{ github.run_id }}
+  packaging-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell scripts
+        run: shellcheck packaging/*.sh packaging/*/*.sh packaging/linux/AppRun
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Workflow syntax
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          actionlint -shellcheck="" .github/workflows/xiri.yml

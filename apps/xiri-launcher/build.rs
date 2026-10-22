@@ -14,6 +14,8 @@ fn main() {
     let mut res = winresource::WindowsResource::new();
     res.set_icon("../../assets/app-icon/xiri-launcher.ico")
         .set("ProductName", "Xiri Launcher")
+        .set("ProductVersion", env!("CARGO_PKG_VERSION"))
+        .set("FileVersion", env!("CARGO_PKG_VERSION"))
         .set("FileDescription", "Xiri Launcher")
         .set("CompanyName", "sugyua")
         .set("LegalCopyright", "Copyright (c) the Xiri Launcher authors. MIT OR Apache-2.0.")
