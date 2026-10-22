@@ -28,13 +28,13 @@
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package
       Name="Xiri Launcher"
-      Manufacturer="Learning Machines LLC"
+      Manufacturer="sugyua"
       Version="$(var.Version)"
-      UpgradeCode="1AC08DBF-D4CF-4BA4-A81E-CAA5C1004974"
+      UpgradeCode="ea7e02c1-f0f5-5206-83e0-cf81d2b46142"
       Scope="perUser"
       Compressed="yes"
       Language="1033">
-    <SummaryInformation Description="Xiri Launcher: install and update the Xiri App Library" Manufacturer="Learning Machines LLC" />
+    <SummaryInformation Description="Xiri Launcher: install and update the Xiri App Library" Manufacturer="sugyua" />
     <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
          (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
     <MajorUpgrade AllowSameVersionUpgrades="yes"
@@ -45,7 +45,7 @@
     <Icon Id="XiriLauncherIcon.exe" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="XiriLauncherIcon.exe" />
     <Property Id="ARPURLINFOABOUT" Value="https://getartcraft.com/apps" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/storytold/craft-launcher/releases" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/sugyua/xiri-launcher/releases" />
     <Property Id="ARPHELPLINK" Value="https://discord.gg/artcraft" />
 
     <StandardDirectory Id="LocalAppDataFolder">
@@ -59,7 +59,7 @@
     <!-- An update installs where the user put the previous version (recorded by
          XiriLauncherApp below; every version since 0.1.0 records it). -->
     <Property Id="INSTALLFOLDER">
-      <RegistrySearch Id="PreviousInstallFolder" Root="HKCU" Key="Software\Learning Machines LLC\Xiri Launcher" Name="InstallDir" Type="raw" />
+      <RegistrySearch Id="PreviousInstallFolder" Root="HKCU" Key="Software\sugyua\Xiri Launcher" Name="InstallDir" Type="raw" />
     </Property>
 
     <!-- The desktop shortcut: the folder page's box sets INSTALLDESKTOPSHORTCUT to 1. It starts
@@ -67,7 +67,7 @@
          from a version that never asked (0.1.0, 0.1.1) adds none. A value given on the command
          line (msiexec ... INSTALLDESKTOPSHORTCUT=0 or 1) wins. -->
     <Property Id="PREVIOUSDESKTOPSHORTCUT">
-      <RegistrySearch Id="PreviousDesktopShortcut" Root="HKCU" Key="Software\Learning Machines LLC\Xiri Launcher" Name="DesktopShortcutChoice" Type="raw" />
+      <RegistrySearch Id="PreviousDesktopShortcut" Root="HKCU" Key="Software\sugyua\Xiri Launcher" Name="DesktopShortcutChoice" Type="raw" />
     </Property>
     <SetProperty Id="INSTALLDESKTOPSHORTCUT" Value="1" After="AppSearch" Sequence="first"
         Condition="NOT INSTALLDESKTOPSHORTCUT AND ((NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT PREVIOUSDESKTOPSHORTCUT) OR PREVIOUSDESKTOPSHORTCUT = &quot;1&quot;)" />
@@ -145,8 +145,8 @@
       <Component Id="XiriLauncherApp" Directory="INSTALLFOLDER" Guid="55DCC431-EBEF-4C11-BABB-6D78CE0ECF4E">
         <File Id="XiriLauncherExe" Source="$(var.BinDir)\xiri-launcher.exe" KeyPath="no" />
         <!-- Read back by the next version's installer and by the launcher (self_update.rs). -->
-        <RegistryValue Root="HKCU" Key="Software\Learning Machines LLC\Xiri Launcher" Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" KeyPath="yes" />
-        <RegistryValue Root="HKCU" Key="Software\Learning Machines LLC\Xiri Launcher" Name="DesktopShortcutChoice" Value="[DESKTOPSHORTCUTCHOICE]" Type="string" />
+        <RegistryValue Root="HKCU" Key="Software\sugyua\Xiri Launcher" Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" KeyPath="yes" />
+        <RegistryValue Root="HKCU" Key="Software\sugyua\Xiri Launcher" Name="DesktopShortcutChoice" Value="[DESKTOPSHORTCUTCHOICE]" Type="string" />
         <!-- Win+R "xiri-launcher". -->
         <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\xiri-launcher.exe" Value="[#XiriLauncherExe]" Type="string" />
         <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
@@ -160,7 +160,7 @@
             Icon="XiriLauncherIcon.exe" IconIndex="0">
           <ShortcutProperty Key="System.AppUserModel.ID" Value="io.github.sugyua.xiri-launcher" />
         </Shortcut>
-        <RegistryValue Root="HKCU" Key="Software\Learning Machines LLC\Xiri Launcher" Name="StartMenuShortcut" Value="1" Type="integer" KeyPath="yes" />
+        <RegistryValue Root="HKCU" Key="Software\sugyua\Xiri Launcher" Name="StartMenuShortcut" Value="1" Type="integer" KeyPath="yes" />
       </Component>
 
       <!-- Only when the folder page's box is ticked; removed on uninstall like everything else. -->
@@ -172,7 +172,7 @@
             Icon="XiriLauncherIcon.exe" IconIndex="0">
           <ShortcutProperty Key="System.AppUserModel.ID" Value="io.github.sugyua.xiri-launcher" />
         </Shortcut>
-        <RegistryValue Root="HKCU" Key="Software\Learning Machines LLC\Xiri Launcher" Name="DesktopShortcut" Value="1" Type="integer" KeyPath="yes" />
+        <RegistryValue Root="HKCU" Key="Software\sugyua\Xiri Launcher" Name="DesktopShortcut" Value="1" Type="integer" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>

@@ -215,7 +215,7 @@ impl LauncherUi {
     }
 
     fn replace_dialog(&mut self, ui: &mut egui::Ui, id: &str, path: &str) -> bool {
-        let Some(app) = self.entry(id).map(|e| e.app) else { return true };
+        let Some(app) = self.entry(id).map(|e| e.app.clone()) else { return true };
         let t = Tokens::get(ui.ctx());
         ui.set_width(440.0f32.min(ui.ctx().content_rect().width() - 80.0));
         Self::title(ui, crate::icons::app(id), tl!("Replace what's there?"), "");
@@ -240,7 +240,7 @@ impl LauncherUi {
     }
 
     fn install_dialog(&mut self, ui: &mut egui::Ui, id: &str, folder: &mut String, host: &mut dyn Host) -> bool {
-        let Some(app) = self.entry(id).map(|e| e.app) else { return true };
+        let Some(app) = self.entry(id).map(|e| e.app.clone()) else { return true };
         ui.set_width(440.0f32.min(ui.ctx().content_rect().width() - 80.0));
         Self::title(ui, None, &app.name, tl!("Install folder"));
         let default = self.settings.install_locations.root.as_deref().unwrap_or(tl!("System default"));

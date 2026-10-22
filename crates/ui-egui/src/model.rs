@@ -49,6 +49,7 @@ impl AppEntry {
         if manage_apps && !self.detected {
             return AppStatus::Checking;
         }
+        if self.app.repo.starts_with("sugyua/") && self.installed.is_some() && self.release().is_some() && !self.has_download(platform) { return AppStatus::Installed; }
         let latest = match &self.latest {
             None => Latest::Pending,
             Some(LatestRelease::Failed(_)) => Latest::Failed,
@@ -93,7 +94,7 @@ pub fn status_text(status: &AppStatus, manage_apps: bool) -> (String, Tone) {
         AppStatus::UpdateAvailable => (t("Update available").to_string(), Tone::Warn),
         AppStatus::Installed => (t("Installed").to_string(), Tone::Neutral),
         AppStatus::Unavailable => (t("Not available here").to_string(), Tone::Faint),
-        AppStatus::NoRelease => (t("Coming soon").to_string(), Tone::Faint),
+        AppStatus::NoRelease => (t("No release published yet").to_string(), Tone::Faint),
     }
 }
 

@@ -1,15 +1,10 @@
 //! Repository details, using the same centered sheet and design tokens as the upstream UI.
-use std::sync::Arc;
 use crate::app::LauncherUi;
 use crate::theme::{self, Tokens};
 use crate::widgets::{self, Kind};
 
-pub(crate) enum Picture { Loading, Ready(Arc<[u8]>), Failed(String) }
-impl Picture {
-    pub(crate) fn from_result(result: Result<Vec<u8>,String>) -> Self { match result {Ok(b)=>Self::Ready(b.into()),Err(e)=>Self::Failed(e)} }
-}
 impl LauncherUi {
-    pub(crate) fn details_drawer(&mut self, ctx: &egui::Context) {
+    pub(crate) fn xiri_details_drawer(&mut self, ctx: &egui::Context) {
         let Some(id) = self.detail.clone() else {return};
         let Some(entry) = self.entry(&id).cloned() else {self.detail = None; return};
         let t = Tokens::get(ctx);

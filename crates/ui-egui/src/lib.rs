@@ -21,8 +21,8 @@ mod bar;
 mod card_parts;
 #[cfg(not(target_arch = "wasm32"))]
 mod cjk_font;
-#[path = "xiri_details.rs"]
 mod details;
+mod xiri_details;
 mod dialogs;
 pub mod i18n;
 pub mod icons;

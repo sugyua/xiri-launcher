@@ -2,6 +2,9 @@ name: Xiri Windows
 on:
   push:
   workflow_dispatch:
+concurrency:
+  group: xiri-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -13,6 +16,11 @@ jobs:
         with:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
+      - uses: actions/cache/restore@v4
+        with:
+          path: target
+          key: xiri-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: xiri-${{ runner.os }}-
       - uses: Swatinem/rust-cache@v2
       - name: Check
         run: cargo check --workspace
@@ -41,3 +49,8 @@ jobs:
           path: |
             dist/*.zip
             dist/SHA256SUMS.txt
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: target
+          key: xiri-${{ runner.os }}-${{ github.run_id }}
