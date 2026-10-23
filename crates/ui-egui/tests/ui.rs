@@ -716,7 +716,7 @@ fn switching_views() {
 
 /// How far the middle of these lines of text is below the middle of the app icon beside them, in points.
 fn below_icon_centre(h: &Harness<'_, Option<LauncherUi>>, lines: &[&str]) -> f32 {
-    let text = lines.iter().map(|l| h.get_by_label(l).rect()).reduce(|a, b| a.union(b)).unwrap();
+    let text = lines.iter().map(|l| top_label_rect(h, l)).reduce(|a, b| a.union(b)).unwrap();
     let icon = h
         .query_all(egui_kittest::kittest::by().role(egui::accesskit::Role::Image))
         .map(|n| n.rect())
@@ -725,6 +725,15 @@ fn below_icon_centre(h: &Harness<'_, Option<LauncherUi>>, lines: &[&str]) -> f32
         .unwrap();
     assert!(text.left() - icon.right() < 24.0, "no icon beside {lines:?}");
     text.center().y - icon.center().y
+}
+
+/// The card heading, rather than the repeated description lower down in its body.
+/// Match Label nodes explicitly, excluding their accessible text-run children.
+fn top_label_rect(h: &Harness<'_, Option<LauncherUi>>, label: &str) -> egui::Rect {
+    h.query_all(egui_kittest::kittest::by().label(label).role(egui::accesskit::Role::Label))
+        .map(|n| n.rect())
+        .min_by(|a, b| a.top().total_cmp(&b.top()))
+        .unwrap()
 }
 
 #[test]
@@ -852,7 +861,7 @@ fn links_to_the_website_github_and_each_apps_pages() {
 
 /// Clicks the `n`th widget labelled `label` and returns the URL the app asked to open.
 fn click_nth_opens(h: &mut Harness<'_, Option<LauncherUi>>, label: &str, n: usize) -> Option<String> {
-    h.get_all_by_label(label).nth(n)?.click();
+    h.query_all_by_label(label).nth(n)?.click();
     for _ in 0..3 {
         h.step();
         let url = h.output().platform_output.commands.iter().find_map(|c| match c {
@@ -1257,8 +1266,10 @@ fn clicking_a_card_opens_its_details_drawer() {
     // Esc closes it and the page is gone once it has slid out.
     h.key_press(egui::Key::Escape);
     h.run_steps(10);
-    // Only the card's own line is left once the page has slid out.
-    assert_eq!(h.query_all_by_label_contains("The image editor you already know").count(), 1);
+    // The headline belongs to the drawer; the catalog card uses its own description.
+    assert_eq!(h.query_all_by_label_contains("The image editor you already know").count(), 0);
+    assert!(h.query_by_label("Close (Esc)").is_none());
+    h.get_by_label("PhotoCraft details");
 }
 
 #[test]
@@ -1413,8 +1424,10 @@ fn the_lead_picture_can_be_enlarged() {
     h.get_all_by_label_contains("The image editor you already know how to use").last().unwrap();
     h.key_press(egui::Key::Escape);
     h.run_steps(10);
-    // Only the card's own line is left once the page has slid out.
-    assert_eq!(h.query_all_by_label_contains("The image editor you already know").count(), 1);
+    // Closing both layers restores the catalog, without the drawer's headline or close button.
+    assert_eq!(h.query_all_by_label_contains("The image editor you already know").count(), 0);
+    assert!(h.query_by_label("Close (Esc)").is_none());
+    h.get_by_label("PhotoCraft details");
 }
 
 /// Every page, whatever it holds: no pictures (PdfCraft), one (DesignCraft) or several. The arrow keys are
@@ -1674,7 +1687,7 @@ fn short_window(reduce: Rc<Cell<bool>>) -> Harness<'static, Option<LauncherUi>> 
 
 /// How far down the window the grid's first card is.
 fn grid_top(h: &Harness<'_, Option<LauncherUi>>) -> f32 {
-    h.get_by_label("Image editing").rect().top()
+    top_label_rect(h, "Image editing").top()
 }
 
 /// Turns the mouse wheel `lines` down over the grid, by way of the shell's `raw_input_hook`. The
@@ -1744,7 +1757,7 @@ fn with_animations_on_the_wheel_glides() {
 /// Moves the pointer from one card to the next. Returns how many frames are drawn before the
 /// window is still again.
 fn frames_to_hover_the_next_card(h: &mut Harness<'_, Option<LauncherUi>>) -> u64 {
-    let cards: Vec<egui::Pos2> = ["Image editing", "Vector illustration"].map(|t| h.get_by_label(t).rect().center()).to_vec();
+    let cards: Vec<egui::Pos2> = ["Image editing", "Vector illustration"].map(|t| top_label_rect(h, t).center()).to_vec();
     // Still to begin with: the icons are in, the first card is lit and the scroll bar is showing.
     h.hover_at(cards[0]);
     h.run();
@@ -1945,7 +1958,7 @@ fn an_apps_page_is_a_card_in_the_middle_with_next_and_previous_arrows_and_closes
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
     let headline = |id: &str| AppDetails::by_id(id).unwrap().headline;
-    let showing = |h: &Harness<'_, Option<LauncherUi>>, id: &str| h.query_all_by_label_contains(headline(id)).count() >= 2;
+    let showing = |h: &Harness<'_, Option<LauncherUi>>, id: &str| h.query_all_by_label_contains(headline(id)).count() > 0;
     h.get_by_label("PhotoCraft details").click();
     h.run_steps(12);
     assert!(showing(&h, "photocraft"));

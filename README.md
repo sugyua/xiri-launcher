@@ -25,7 +25,7 @@ A presença no código não equivale a validação de execução. O progresso da
 
 ## Dependências
 
-Windows x64 para o alvo inicial. Rust estável >= 1.90 e ferramentas C++/SDK Windows para compilar. Os programas distribuídos têm seus próprios requisitos; consulte seus READMEs. Os pacotes Destinia não são considerados autossuficientes.
+Windows x64 para o alvo inicial. Rust estável >= 1.95 e ferramentas C++/SDK Windows para compilar. Rust é necessário apenas para compilação; o ZIP compilado não exige instalar Rust. Os programas distribuídos têm seus próprios requisitos; consulte seus READMEs. Os pacotes Destinia não são considerados autossuficientes.
 
 ## Compilar
 
