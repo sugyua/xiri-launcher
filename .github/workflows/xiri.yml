@@ -26,12 +26,20 @@ jobs:
         run: cargo xtask ci
       - name: Render Xiri UI
         env:
-          XIRI_LAUNCHER_SNAPSHOTS: dist/previews
-        run: cargo test -p xiri-launcher-ui-egui --test xiri_preview -- --test-threads=1
+          XIRI_LAUNCHER_SNAPSHOTS: ${{ github.workspace }}/dist/previews
+        shell: pwsh
+        run: |
+          $artifacts = cargo test --locked --workspace --no-run --message-format=json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $preview = $artifacts | ConvertFrom-Json | Where-Object { $_.reason -eq 'compiler-artifact' -and $_.target.name -eq 'xiri_preview' -and $_.executable } | Select-Object -ExpandProperty executable -Last 1
+          if (-not $preview) { throw 'Xiri preview test executable was not produced.' }
+          & $preview --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
           name: xiri-interface
           path: dist/previews/*.png
+          if-no-files-found: error
       - name: Build Windows
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
