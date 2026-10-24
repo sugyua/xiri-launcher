@@ -949,7 +949,7 @@ impl NativeBackend {
 impl Backend for NativeBackend {
     fn send(&mut self, command: Command) {
         match command {
-            Command::Associate { .. } => {}
+            Command::Associate { .. } | Command::DestiniaCheck | Command::DestiniaDownload | Command::DestiniaReveal => {}
             Command::CheckForUpdates { force } => self.check(force),
             Command::Detect => self.detect_all(),
             Command::Install { app } => self.start_job(&app, Work::Install),
