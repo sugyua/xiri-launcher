@@ -170,6 +170,8 @@ impl LauncherUi {
             ui.add_space(14.0);
         }
         self.announcements(ui);
+        self.destinia_controls(ui);
+        if self.caps.manage_apps { ui.add_space(10.0); }
         if let Some(warning) = &self.catalog_warning {
             ui.label(RichText::new(warning).color(t.warn));
             ui.add_space(8.0);
