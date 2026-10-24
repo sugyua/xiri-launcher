@@ -1,8 +1,14 @@
-# Xiri Launcher para Windows — em desenvolvimento
+# Xiri Launcher para Windows — 0.1.0 Beta 1
 
-> **A adaptação está em desenvolvimento. Ainda não há uma versão Windows validada para uso.**
+> **Versão Beta: compilação e testes automatizados aprovados; teste manual no Windows e instalação real de programas ainda pendentes.**
 
 Launcher dos programas e jogos de [sugyua](https://github.com/sugyua), baseado no código aberto do [ArtCraft Launcher](https://github.com/storytold/craft-launcher). Preserva o desenho da interface nativa Rust/egui, com identidade Xiri e catálogo consultado no GitHub.
+
+## Baixar e abrir
+
+**[Baixar o ZIP Windows x64](https://github.com/sugyua/xiri-launcher/releases/download/v0.1.0-beta.1/xiri-launcher-0.1.0-beta.1-windows-x64-portable.zip)** · [Release e SHA256SUMS.txt](https://github.com/sugyua/xiri-launcher/releases/tag/v0.1.0-beta.1).
+
+Extraia o ZIP completo e abra **`xiri-launcher.exe`**, na raiz da pasta extraída. Não é necessário instalar Rust. O botão **Code → Download ZIP** baixa somente o código-fonte e não inclui o executável.
 
 ## Arquitetura
 
@@ -35,7 +41,7 @@ cargo build --release -p xiri-launcher
 
 ## Desenvolvimento e distribuição
 
-O workflow gera um artefato Windows somente após passar pelas verificações configuradas. Ainda não foi publicada uma release validada.
+A release Beta utiliza o executável da revisão `0d8d98c`, aprovada na [CI Windows39912020684](https://github.com/sugyua/xiri-launcher/actions/runs/39912020684). Inclui ZIP com EXE Windows x64 e checksum. Testes automáticos não substituem a validação manual do catálogo, abertura de programas e persistência no PC.
 
 ## Publicação
 
