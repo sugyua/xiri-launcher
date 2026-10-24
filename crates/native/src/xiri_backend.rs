@@ -1,8 +1,8 @@
 //! Xiri's backend. Network and disk work run away from egui's frame thread.
+use crate::destinia_updates;
 #[cfg(windows)]
 use crate::http::Transfer;
 use crate::http::{Http, Stop};
-use crate::destinia_updates;
 use crate::source::{GitHubSource, ReleaseSource};
 use crate::xiri_repositories::{self, CatalogCache};
 use serde::{Deserialize, Serialize};
@@ -202,7 +202,9 @@ impl XiriBackend {
         });
     }
     fn check_destinia(&self) {
-        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) { return; }
+        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
         let shared = self.shared.clone();
         std::thread::spawn(move || {
             let result = destinia_updates::check();
@@ -212,7 +214,9 @@ impl XiriBackend {
         });
     }
     fn download_destinia(&self) {
-        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) { return; }
+        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
         let shared = self.shared.clone();
         std::thread::spawn(move || {
             let release = shared.destinia_latest.lock().unwrap_or_else(PoisonError::into_inner).clone();

@@ -9,10 +9,13 @@ use std::process::Command;
 use xiri_launcher_core::protocol::DestiniaReleaseInfo;
 
 const REPO: &str = "sugyua/destinia";
-const AUTH_HELP: &str = "Destinia e privado. Instale o GitHub CLI (gh) e execute 'gh auth login' uma vez no seu Windows. O Xiri nao armazena senhas ou tokens.";
+const AUTH_HELP: &str =
+    "Destinia e privado. Instale o GitHub CLI (gh) e execute 'gh auth login' uma vez no seu Windows. O Xiri nao armazena senhas ou tokens.";
 
 #[derive(Deserialize)]
-struct Asset { name: String }
+struct Asset {
+    name: String,
+}
 #[derive(Deserialize)]
 struct Entry {
     tag_name: String,
@@ -24,9 +27,11 @@ struct Entry {
 
 fn asset_name(tag: &str) -> Option<String> {
     let suffix = tag.strip_prefix('v')?;
-    if suffix.len() < 3 || suffix.len() > 64
+    if suffix.len() < 3
+        || suffix.len() > 64
         || !suffix.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
-        || !suffix.as_bytes()[0].is_ascii_digit() || !suffix.contains('.')
+        || !suffix.as_bytes()[0].is_ascii_digit()
+        || !suffix.contains('.')
     {
         return None;
     }
@@ -38,10 +43,10 @@ pub fn parse_latest(data: &str) -> Result<DestiniaReleaseInfo, String> {
     let releases: Vec<Entry> = serde_json::from_str(data).map_err(|_| "Resposta de Releases invalida".to_string())?;
     for release in releases {
         let Some(asset) = asset_name(&release.tag_name) else { continue };
-        if release.draft { continue; }
-        if release.assets.iter().any(|a| a.name == asset)
-            && release.assets.iter().any(|a| a.name == format!("{asset}.sha256"))
-        {
+        if release.draft {
+            continue;
+        }
+        if release.assets.iter().any(|a| a.name == asset) && release.assets.iter().any(|a| a.name == format!("{asset}.sha256")) {
             return Ok(DestiniaReleaseInfo { tag: release.tag_name, asset });
         }
     }
@@ -83,7 +88,9 @@ fn actual_digest(file: &Path) -> Result<String, String> {
     let mut buffer = [0u8; 65536];
     loop {
         let n = f.read(&mut buffer).map_err(|e| e.to_string())?;
-        if n == 0 { break; }
+        if n == 0 {
+            break;
+        }
         hasher.update(&buffer[..n]);
     }
     Ok(format!("{:x}", hasher.finalize()))
@@ -92,9 +99,10 @@ fn actual_digest(file: &Path) -> Result<String, String> {
 fn verify_zip(file: &Path) -> Result<(), String> {
     #[cfg(windows)]
     {
-        let mut zip = zip::ZipArchive::new(File::open(file).map_err(|e| e.to_string())?)
-            .map_err(|_| "ZIP Windows invalido")?;
-        if zip.len() > 2000 { return Err("ZIP com arquivos demais".into()); }
+        let mut zip = zip::ZipArchive::new(File::open(file).map_err(|e| e.to_string())?).map_err(|_| "ZIP Windows invalido")?;
+        if zip.len() > 2000 {
+            return Err("ZIP com arquivos demais".into());
+        }
         let mut normal = false;
         let mut zoom = false;
         for i in 0..zip.len() {
@@ -103,10 +111,16 @@ fn verify_zip(file: &Path) -> Result<(), String> {
             if !xiri_launcher_core::xiri::valid_entry_path(name.trim_end_matches('/')) {
                 return Err("ZIP com caminho inseguro".into());
             }
-            if name.ends_with("/Destinia.exe") { normal = true; }
-            if name.ends_with("/Destinia Zoom.exe") { zoom = true; }
+            if name.ends_with("/Destinia.exe") {
+                normal = true;
+            }
+            if name.ends_with("/Destinia Zoom.exe") {
+                zoom = true;
+            }
         }
-        if !normal || !zoom { return Err("ZIP Windows sem os dois executaveis da raiz".into()); }
+        if !normal || !zoom {
+            return Err("ZIP Windows sem os dois executaveis da raiz".into());
+        }
     }
     #[cfg(not(windows))]
     let _ = file;
@@ -115,8 +129,12 @@ fn verify_zip(file: &Path) -> Result<(), String> {
 
 /// Only downloads to Xiri's dedicated data folder. No file in the user's game is touched.
 pub fn download(root: &Path, release: &DestiniaReleaseInfo) -> Result<PathBuf, String> {
-    if asset_name(&release.tag) != Some(release.asset.clone()) { return Err("Release desconhecida".into()); }
-    if root.as_os_str().is_empty() { return Err("Diretorio de dados indisponivel".into()); }
+    if asset_name(&release.tag) != Some(release.asset.clone()) {
+        return Err("Release desconhecida".into());
+    }
+    if root.as_os_str().is_empty() {
+        return Err("Diretorio de dados indisponivel".into());
+    }
     let downloads = root.join("destinia-downloads");
     fs::create_dir_all(&downloads).map_err(|e| e.to_string())?;
     let destination = downloads.join(&release.tag);
@@ -151,8 +169,8 @@ mod tests {
     use super::*;
     #[test]
     fn accepts_only_properly_versioned_release_with_both_assets() {
-        let good=r#"[{"tag_name":"v0.9.2-beta","assets":[{"name":"destinia-0.9.2-beta-windows-x64.zip"},{"name":"destinia-0.9.2-beta-windows-x64.zip.sha256"}]}]"#;
-        let r=parse_latest(good).unwrap();
+        let good = r#"[{"tag_name":"v0.9.2-beta","assets":[{"name":"destinia-0.9.2-beta-windows-x64.zip"},{"name":"destinia-0.9.2-beta-windows-x64.zip.sha256"}]}]"#;
+        let r = parse_latest(good).unwrap();
         assert_eq!(r.tag, "v0.9.2-beta");
         assert_eq!(r.asset, "destinia-0.9.2-beta-windows-x64.zip");
         assert!(parse_latest(r#"[{"tag_name":"v0.9.2-beta","assets":[{"name":"destinia-0.9.2-beta-windows-x64.zip"}]}]"#).is_err());
@@ -161,10 +179,10 @@ mod tests {
     }
     #[test]
     fn does_not_touch_installation_on_invalid_release() {
-        let dir=tempfile::tempdir().unwrap();
-        let marker=dir.path().join("save.dat");
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join("save.dat");
         fs::write(&marker, b"keep").unwrap();
-        let fake=DestiniaReleaseInfo {tag:"../../escape".into(),asset:"bogus.zip".into()};
+        let fake = DestiniaReleaseInfo { tag: "../../escape".into(), asset: "bogus.zip".into() };
         assert!(download(dir.path(), &fake).is_err());
         assert_eq!(fs::read(marker).unwrap(), b"keep");
     }

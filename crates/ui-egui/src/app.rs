@@ -340,7 +340,10 @@ impl LauncherUi {
         if !self.started {
             self.started = true;
             self.backend.send(Command::CheckForUpdates { force: false });
-            if self.caps.manage_apps { self.backend.send(Command::DestiniaCheck); self.destinia_busy = true; }
+            if self.caps.manage_apps {
+                self.backend.send(Command::DestiniaCheck);
+                self.destinia_busy = true;
+            }
         }
         let now = self.backend.now();
         if self.last_detect == 0 {
@@ -359,7 +362,10 @@ impl LauncherUi {
             && self.settings.last_check.is_none_or(|t| now - t >= every)
         {
             self.backend.send(Command::CheckForUpdates { force: false });
-            if self.caps.manage_apps && !self.destinia_busy { self.backend.send(Command::DestiniaCheck); self.destinia_busy = true; }
+            if self.caps.manage_apps && !self.destinia_busy {
+                self.backend.send(Command::DestiniaCheck);
+                self.destinia_busy = true;
+            }
         }
         let mut changed = false;
         for event in self.backend.poll() {
@@ -367,7 +373,10 @@ impl LauncherUi {
                 const ID: &str = "destinia-private";
                 if self.settings.notified.get(ID) != Some(&release.tag) {
                     if self.settings.notify {
-                        host.notify("Destinia — nova Release disponível", &format!("{} disponível no Xiri Launcher para download verificado.", release.tag));
+                        host.notify(
+                            "Destinia — nova Release disponível",
+                            &format!("{} disponível no Xiri Launcher para download verificado.", release.tag),
+                        );
                     }
                     self.settings.notified.insert(ID.into(), release.tag.clone());
                 }

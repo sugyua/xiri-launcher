@@ -35,8 +35,8 @@ mod sheet;
 pub mod theme;
 mod views;
 mod widgets;
-mod xiri_details;
 mod xiri_destinia;
+mod xiri_details;
 
 pub use app::{Host, LauncherUi, TitleBar};
 pub use i18n::{

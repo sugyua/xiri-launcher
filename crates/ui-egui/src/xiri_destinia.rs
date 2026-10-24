@@ -5,7 +5,9 @@ use xiri_launcher_core::protocol::Command;
 
 impl LauncherUi {
     pub(crate) fn destinia_controls(&mut self, ui: &mut egui::Ui) {
-        if !self.caps.manage_apps { return; }
+        if !self.caps.manage_apps {
+            return;
+        }
         let info = self.destinia_release.clone();
         let downloaded = self.destinia_zip.is_some();
         egui::Frame::group(ui.style()).show(ui, |ui| {
