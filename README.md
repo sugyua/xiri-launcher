@@ -1,4 +1,4 @@
-# Xiri Launcher para Windows — 0.1.0 Beta 1
+# Xiri Launcher para Windows — 0.1.0 Beta 2
 
 > **Versão Beta: compilação e testes automatizados aprovados; teste manual no Windows e instalação real de programas ainda pendentes.**
 
@@ -6,9 +6,17 @@ Launcher dos programas e jogos de [sugyua](https://github.com/sugyua), baseado n
 
 ## Baixar e abrir
 
-**[Baixar o ZIP Windows x64](https://github.com/sugyua/xiri-launcher/releases/download/v0.1.0-beta.1/xiri-launcher-0.1.0-beta.1-windows-x64-portable.zip)** · [Release e SHA256SUMS.txt](https://github.com/sugyua/xiri-launcher/releases/tag/v0.1.0-beta.1).
+**[Baixar Xiri Launcher 0.1.0 Beta 2](https://github.com/sugyua/xiri-launcher/releases/tag/v0.1.0-beta.2)** — o pacote Windows inclui `xiri-launcher.exe` e SHA256SUMS.txt. [Beta 1 anterior](https://github.com/sugyua/xiri-launcher/releases/tag/v0.1.0-beta.1).
 
 Extraia o ZIP completo e abra **`xiri-launcher.exe`**, na raiz da pasta extraída. Não é necessário instalar Rust. O botão **Code → Download ZIP** baixa somente o código-fonte e não inclui o executável.
+
+## Destinia privado: consultar e baixar sem abrir o GitHub
+
+O Xiri agora tem uma faixa **Destinia** na tela principal. Depois de autenticar o [GitHub CLI](https://cli.github.com/) no Windows uma única vez com `gh auth login` (conta com acesso ao repositório privado), o Xiri pode consultar as versões do Destinia e **baixar o ZIP Windows e seu arquivo .sha256 diretamente**, verificando SHA-256 e integridade básica do pacote. Use **Verificar versão**, **Baixar ZIP verificado** e **Abrir pasta do ZIP**.
+
+O download fica em `%LOCALAPPDATA%\\Xiri Launcher\\destinia-downloads\\<tag>`. **Não há instalação automática nesta Beta**: o Xiri nunca sobrescreve seus saves, a pasta `game`, BATs ou instalações existentes. A extração/instalação do ZIP verificado ainda é manual, após fechar o jogo e fazer backup. [Passo a passo e limites](docs/DESTINIA_UPDATES.md).
+
+A versão web do Destinia não é modificada pelo Xiri. Consulte [README Destinia](https://github.com/sugyua/destinia) para a revisão web realmente publicada.
 
 ## Arquitetura
 
@@ -41,7 +49,7 @@ cargo build --release -p xiri-launcher
 
 ## Desenvolvimento e distribuição
 
-A release Beta utiliza o executável da revisão `0d8d98c`, aprovada na [CI Windows39912020684](https://github.com/sugyua/xiri-launcher/actions/runs/39912020684). Inclui ZIP com EXE Windows x64 e checksum. Testes automáticos não substituem a validação manual do catálogo, abertura de programas e persistência no PC.
+A Beta 2 usa o workflow `Xiri Windows` para compilar, testar e publicar a versão exata com checksum. A Beta 1 foi compilada na revisão `0d8d98c` (CI Windows 39912020684) e permanece disponível. Testes automatizados não comprovam acesso real ao repositório privado, instalação de programas ou funcionamento em todos os PCs.
 
 ## Publicação
 
