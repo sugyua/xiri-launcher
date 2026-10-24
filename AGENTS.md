@@ -17,9 +17,9 @@ this to arbitrary owners or hosts. Keep the independent Xiri identity and origin
 license/attribution notices; do not restore ArtCraft branding or promotional links.
 
 The active workflow is `.github/workflows/xiri.yml`, which runs checks and produces
-a Windows portable ZIP and checksum as Actions artifacts. There is no
-`release.yml` or automatic release-branch publication in this fork. Publishing a
-release requires explicit owner authorization and passing the documented gates.
+a Windows portable ZIP and checksum as Actions artifacts. The manual
+`release.yml` publishes the pinned, CI-verified Beta package without rebuilding it.
+Publishing a release requires explicit owner authorization and passing the documented gates.
 Do not invent instructions from the absent sibling `../craftrules` repository.
 
 For cross-agent work, consult the private `sugyua/ai-progress-shared` workflow,

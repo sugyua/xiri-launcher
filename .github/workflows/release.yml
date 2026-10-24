@@ -1,0 +1,46 @@
+name: Publicar Xiri Launcher Beta verificado
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: publish-xiri-beta-1
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir CI e recuperar pacote original
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 39912020684 --json conclusion --jq .conclusion)" = success
+          test "$(gh run view 39912020684 --json headSha --jq .headSha)" = 0d8d98c019d607267c5dfab1c87becc508f03f7f
+          gh run download 39912020684 -n xiri-launcher-windows-x64 -D release-assets
+          cd release-assets
+          sha256sum -c SHA256SUMS.txt
+          echo '4e0f077f16bfe445874fb73870d99b80aaec45aa96ac2e1e4233a5721331e6ca  xiri-launcher-0.1.0-beta.1-windows-x64-portable.zip' | sha256sum -c -
+          python - <<'CHECK'
+          import pathlib, struct, zipfile
+          with zipfile.ZipFile('xiri-launcher-0.1.0-beta.1-windows-x64-portable.zip') as z:
+              assert z.testzip() is None
+              assert z.read('VERSION').decode('utf-8-sig').strip() == '0.1.0-beta.1'
+              data = z.read('xiri-launcher.exe')
+              offset = struct.unpack_from('<I', data, 0x3c)[0]
+              assert data[:2] == b'MZ' and data[offset:offset+4] == b'PE\0\0'
+              assert struct.unpack_from('<H', data, offset+4)[0] == 0x8664
+          CHECK
+      - name: Publicar ZIP e checksum autorizados
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view v0.1.0-beta.1 >/dev/null 2>&1; then
+            gh release create v0.1.0-beta.1 --target 0d8d98c019d607267c5dfab1c87becc508f03f7f --title 'Xiri Launcher 0.1.0 Beta 1' --notes-file docs/RELEASE_0.1.0-beta.1.md --draft --prerelease
+          fi
+          gh release upload v0.1.0-beta.1 release-assets/xiri-launcher-0.1.0-beta.1-windows-x64-portable.zip release-assets/SHA256SUMS.txt
+          gh release edit v0.1.0-beta.1 --draft=false --prerelease --title 'Xiri Launcher 0.1.0 Beta 1' --notes-file docs/RELEASE_0.1.0-beta.1.md
