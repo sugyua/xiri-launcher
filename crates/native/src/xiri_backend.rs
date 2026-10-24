@@ -1,5 +1,7 @@
 //! Xiri's backend. Network and disk work run away from egui's frame thread.
-use crate::http::{Http, Stop, Transfer};
+#[cfg(windows)]
+use crate::http::Transfer;
+use crate::http::{Http, Stop};
 use crate::source::{GitHubSource, ReleaseSource};
 use crate::xiri_repositories::{self, CatalogCache};
 use serde::{Deserialize, Serialize};
@@ -7,8 +9,12 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
-use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, JobPhase, LatestRelease, Origin, Source};
-use xiri_launcher_core::xiri::{AppInfo, EntryKind, PackageEntry, package_asset};
+#[cfg(windows)]
+use xiri_launcher_core::protocol::JobPhase;
+use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, LatestRelease, Origin, Source};
+#[cfg(windows)]
+use xiri_launcher_core::xiri::package_asset;
+use xiri_launcher_core::xiri::{AppInfo, EntryKind, PackageEntry};
 use xiri_launcher_core::{Arch, InstallSource, Installed, Os, Platform, Release};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
