@@ -55,7 +55,7 @@ jobs:
           New-Item -ItemType Directory dist/xiri/assets/fonts -Force | Out-Null
           Copy-Item assets/fonts/OFL-*.txt dist/xiri/assets/fonts/
           New-Item -ItemType Directory dist/xiri/docs -Force | Out-Null
-          Copy-Item docs/XIRI_MANIFEST.md,docs/VERIFICACOES.md dist/xiri/docs/
+          Copy-Item docs/XIRI_MANIFEST.md,docs/VERIFICACOES.md,docs/DESTINIA_UPDATES.md dist/xiri/docs/
           $version = [regex]::Match((Get-Content Cargo.toml -Raw), '(?m)^version = "([^"]+)"').Groups[1].Value
           $name = "xiri-launcher-$version-windows-x64-portable.zip"
           $version | Set-Content dist/xiri/VERSION -Encoding utf8NoBOM
@@ -85,4 +85,4 @@ jobs:
       - name: Workflow syntax
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
-          actionlint -shellcheck="" .github/workflows/xiri.yml
+          actionlint -shellcheck="" .github/workflows/xiri.yml .github/workflows/release-beta2.yml
