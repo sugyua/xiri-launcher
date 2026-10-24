@@ -114,6 +114,9 @@ pub struct LauncherUi {
     pub(crate) platform: Option<Platform>,
     pub(crate) checking: bool,
     pub(crate) catalog_warning: Option<String>,
+    pub(crate) destinia_release: Option<Result<xiri_launcher_core::protocol::DestiniaReleaseInfo, String>>,
+    pub(crate) destinia_busy: bool,
+    pub(crate) destinia_zip: Option<String>,
     pub(crate) last_source: Option<Source>,
     pub(crate) rate_limited_until: Option<i64>,
     pub(crate) launcher_update: Option<Release>,
@@ -201,6 +204,9 @@ impl LauncherUi {
             platform,
             checking: false,
             catalog_warning: None,
+            destinia_release: None,
+            destinia_busy: false,
+            destinia_zip: None,
             last_source: None,
             rate_limited_until: None,
             launcher_update: None,
@@ -334,6 +340,7 @@ impl LauncherUi {
         if !self.started {
             self.started = true;
             self.backend.send(Command::CheckForUpdates { force: false });
+            if self.caps.manage_apps { self.backend.send(Command::DestiniaCheck); self.destinia_busy = true; }
         }
         let now = self.backend.now();
         if self.last_detect == 0 {
@@ -352,6 +359,7 @@ impl LauncherUi {
             && self.settings.last_check.is_none_or(|t| now - t >= every)
         {
             self.backend.send(Command::CheckForUpdates { force: false });
+            if self.caps.manage_apps && !self.destinia_busy { self.backend.send(Command::DestiniaCheck); self.destinia_busy = true; }
         }
         let mut changed = false;
         for event in self.backend.poll() {
@@ -375,6 +383,22 @@ impl LauncherUi {
     /// Returns whether app state changed.
     fn handle(&mut self, ctx: &egui::Context, event: Event) -> bool {
         match event {
+            Event::DestiniaChecked(result) => {
+                self.destinia_busy = false;
+                self.destinia_release = Some(result);
+                true
+            }
+            Event::DestiniaDownloaded(result) => {
+                self.destinia_busy = false;
+                match result {
+                    Ok(file) => {
+                        self.destinia_zip = Some(file);
+                        self.toast(ctx, "Destinia baixado e SHA-256 verificado. Use Abrir pasta para instalar com seguranca.", false);
+                    }
+                    Err(error) => self.toast(ctx, error, true),
+                }
+                true
+            }
             Event::AppIcon { app, bytes } => {
                 let _ = crate::icons::register_icon(ctx, &app, &bytes);
                 true
