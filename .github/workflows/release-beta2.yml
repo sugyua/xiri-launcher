@@ -1,0 +1,68 @@
+name: Publicar Xiri Launcher 0.1.0 Beta 2
+on:
+  workflow_run:
+    workflows: [Xiri Windows]
+    types: [completed]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: release-xiri-beta-2
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Exigir revisao atual de main e CI Windows da mesma revisao
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.event.workflow_run.id }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$SHA"
+          grep -q '^version = "0.1.0-beta.2"' Cargo.toml
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$RUN --jq .conclusion)" = success
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$RUN --jq .head_sha)" = "$SHA"
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$RUN --jq .path)" = .github/workflows/xiri.yml
+      - uses: actions/download-artifact@v4
+        with:
+          name: xiri-launcher-windows-x64
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: verified
+      - name: Validar pacote Windows, checksum, VERSION e PE x64
+        run: |
+          set -euo pipefail
+          cd verified
+          sha256sum -c SHA256SUMS.txt
+          python - <<'PY'
+          import pathlib,struct,zipfile
+          root=pathlib.Path('.'); names=list(root.glob('*.zip'))
+          assert len(names)==1 and names[0].name=='xiri-launcher-0.1.0-beta.2-windows-x64-portable.zip'
+          with zipfile.ZipFile(names[0]) as z:
+              assert z.testzip() is None
+              assert z.read('VERSION').decode('utf-8-sig').strip()=='0.1.0-beta.2'
+              assert 'docs/DESTINIA_UPDATES.md' in z.namelist()
+              b=z.read('xiri-launcher.exe')
+              at=struct.unpack_from('<I',b,0x3c)[0]
+              assert b[:2]==b'MZ' and b[at:at+4]==b'PE\0\0'
+              assert struct.unpack_from('<H',b,at+4)[0]==0x8664
+          PY
+      - name: Publicar versao nova sem sobrescrever versoes anteriores
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          if gh release view v0.1.0-beta.2 >/dev/null 2>&1; then
+            echo "Beta 2 ja existe; preservando."
+            exit 0
+          fi
+          gh release create v0.1.0-beta.2 verified/*.zip verified/SHA256SUMS.txt --target "$SHA" --title 'Xiri Launcher 0.1.0 Beta 2 — Destinia' --notes-file docs/RELEASE_0.1.0-beta.2.md --prerelease
+          gh release view v0.1.0-beta.2 --json tagName,assets --jq '.tagName, (.assets[].name)'
