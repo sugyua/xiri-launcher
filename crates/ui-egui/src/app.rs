@@ -363,6 +363,15 @@ impl LauncherUi {
         }
         let mut changed = false;
         for event in self.backend.poll() {
+            if let Event::DestiniaChecked(Ok(release)) = &event {
+                const ID: &str = "destinia-private";
+                if self.settings.notified.get(ID) != Some(&release.tag) {
+                    if self.settings.notify {
+                        host.notify("Destinia — nova Release disponível", &format!("{} disponível no Xiri Launcher para download verificado.", release.tag));
+                    }
+                    self.settings.notified.insert(ID.into(), release.tag.clone());
+                }
+            }
             changed |= self.handle(ctx, event);
         }
         if changed {
