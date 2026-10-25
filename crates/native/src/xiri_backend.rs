@@ -234,12 +234,12 @@ impl XiriBackend {
     fn reveal_destinia(&self) {
         let file = self.shared.destinia_download.lock().unwrap_or_else(PoisonError::into_inner).clone();
         #[cfg(windows)]
-        if let Some(file) = file {
-            if let Some(folder) = file.parent() {
-                let result = std::process::Command::new("explorer.exe").arg(folder).spawn();
-                if result.is_err() {
-                    self.shared.emit(Event::DestiniaDownloaded(Err("Nao foi possivel abrir a pasta de downloads".into())));
-                }
+        if let Some(file) = file
+            && let Some(folder) = file.parent()
+        {
+            let result = std::process::Command::new("explorer.exe").arg(folder).spawn();
+            if result.is_err() {
+                self.shared.emit(Event::DestiniaDownloaded(Err("Nao foi possivel abrir a pasta de downloads".into())));
             }
         }
         #[cfg(not(windows))]
