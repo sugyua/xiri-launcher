@@ -118,6 +118,7 @@ pub struct LauncherUi {
     pub(crate) destinia_busy: bool,
     pub(crate) destinia_zip: Option<String>,
     pub(crate) destinia_confirm: bool,
+    pub(crate) updates_panel_open: bool,
     pub(crate) last_source: Option<Source>,
     pub(crate) rate_limited_until: Option<i64>,
     pub(crate) launcher_update: Option<Release>,
@@ -209,6 +210,7 @@ impl LauncherUi {
             destinia_busy: false,
             destinia_zip: None,
             destinia_confirm: false,
+            updates_panel_open: false,
             last_source: None,
             rate_limited_until: None,
             launcher_update: None,
@@ -707,8 +709,19 @@ impl LauncherUi {
             .frame(egui::Frame::new().fill(tokens.bg).inner_margin(egui::Margin { left: 20, right: 20, top: 18, bottom: 0 }))
             .show(ui, |ui| {
                 self.toolbar(ui);
-                self.destinia_controls(ui, host);
-                self.xiri_update_controls(ui);
+                if self.updates_panel_open {
+                    let mut open = true;
+                    egui::Window::new("Atualizações")
+                        .id(egui::Id::new("xiri-updates-panel"))
+                        .open(&mut open)
+                        .resizable(true)
+                        .default_width(580.0)
+                        .show(&ctx, |panel| {
+                            self.xiri_update_controls(panel);
+                            self.destinia_controls(panel, host);
+                        });
+                    self.updates_panel_open = open;
+                }
                 ui.add_space(18.0);
                 let ids = self.visible_ids();
                 // The table is wider than a narrow window: let it scroll sideways too.
