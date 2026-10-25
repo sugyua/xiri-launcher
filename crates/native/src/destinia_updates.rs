@@ -257,8 +257,10 @@ fn apply_files(source: &Path, user_folder: &Path, files: &[PathBuf]) -> Result<S
             let from = source.join(rel);
             let parent = target.parent().ok_or("Pasta de destino inválida")?;
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-            let staging_file = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
-            fs::copy(&from, staging_file.path()).map_err(|e| format!("Falha ao preparar arquivo: {e}"))?;
+            let mut staging_file = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+            let mut source_file = File::open(&from).map_err(|e| format!("Falha ao abrir arquivo: {e}"))?;
+            std::io::copy(&mut source_file, staging_file.as_file_mut()).map_err(|e| format!("Falha ao preparar arquivo: {e}"))?;
+            staging_file.as_file_mut().sync_all().map_err(|e| e.to_string())?;
             let had_previous = target.is_file();
             if had_previous {
                 let old = backup.path().join(rel);
