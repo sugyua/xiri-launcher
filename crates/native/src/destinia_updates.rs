@@ -144,7 +144,7 @@ pub fn download(root: &Path, release: &DestiniaReleaseInfo) -> Result<PathBuf, S
 #[cfg(windows)]
 fn package_files(zip_path: &Path, release: &DestiniaReleaseInfo) -> Result<Vec<PathBuf>, String> {
     let mut archive = zip::ZipArchive::new(File::open(zip_path).map_err(|e| e.to_string())?).map_err(|e| format!("ZIP inválido: {e}"))?;
-    if archive.len() == 0 || archive.len() > 2000 {
+    if archive.is_empty() || archive.len() > 2000 {
         return Err("Quantidade de arquivos ZIP inválida".into());
     }
     let prefix = format!("destinia-{}/", release.tag.strip_prefix('v').ok_or("Tag inválida")?);
@@ -310,10 +310,10 @@ fn apply_files(source: &Path, user_folder: &Path, files: &[PathBuf]) -> Result<S
         let mut problems = Vec::new();
         for (rel, existed) in applied.iter().rev() {
             let target = root.join(rel);
-            if target.is_file() {
-                if let Err(e) = fs::remove_file(&target) {
-                    problems.push(format!("{}: {e}", rel.display()));
-                }
+            if target.is_file()
+                && let Err(e) = fs::remove_file(&target)
+            {
+                problems.push(format!("{}: {e}", rel.display()));
             }
             if *existed {
                 let old = backup.path().join(rel);
