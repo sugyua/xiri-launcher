@@ -1,5 +1,6 @@
 //! Xiri's backend. Network and disk work run away from egui's frame thread.
 use crate::destinia_updates;
+use crate::xiri_self_update;
 #[cfg(windows)]
 use crate::http::Transfer;
 use crate::http::{Http, Stop};
@@ -34,6 +35,8 @@ struct Shared {
     processes: Mutex<BTreeMap<String, std::process::Child>>,
     checking: AtomicBool,
     destinia_busy: AtomicBool,
+    xiri_busy: AtomicBool,
+    xiri_latest: Mutex<Option<Release>>,
     destinia_latest: Mutex<Option<DestiniaReleaseInfo>>,
     destinia_download: Mutex<Option<PathBuf>>,
     warning: Mutex<Option<String>>,
@@ -140,6 +143,8 @@ impl XiriBackend {
             processes: Mutex::new(BTreeMap::new()),
             checking: AtomicBool::new(false),
             destinia_busy: AtomicBool::new(false),
+            xiri_busy: AtomicBool::new(false),
+            xiri_latest: Mutex::new(None),
             destinia_latest: Mutex::new(None),
             destinia_download: Mutex::new(None),
             warning: Mutex::new(None),
@@ -197,8 +202,41 @@ impl XiriBackend {
             if let Err(e) = answer {
                 shared.catalog_event(Some(e));
             }
+            match xiri_self_update::latest() {
+                Ok(Some(release)) => {
+                    *shared.xiri_latest.lock().unwrap_or_else(PoisonError::into_inner) = Some(release.clone());
+                    shared.emit(Event::LauncherUpdate(release));
+                }
+                Ok(None) => {}
+                Err(e) => log::info!("Xiri self-update check: {e}"),
+            }
             shared.emit(Event::CheckFinished { at: crate::now(), source: Source::GitHubApi, rate_limited_until: None });
             shared.checking.store(false, Ordering::SeqCst);
+        });
+    }
+    fn update_xiri(&self) {
+        if self.shared.xiri_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let shared = self.shared.clone();
+        std::thread::spawn(move || {
+            let release = shared.xiri_latest.lock().unwrap_or_else(PoisonError::into_inner).clone();
+            let result = match release {
+                Some(release) if !shared.destinia_busy.load(Ordering::SeqCst) && shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).is_empty() => {
+                    xiri_self_update::schedule(&release, &shared.root, |phase| {
+                        shared.emit(Event::Progress { app: xiri_launcher_core::catalog::LAUNCHER_ID.to_string(), phase });
+                    })
+                }
+                Some(_) => Err("Feche programas e conclua outros downloads antes de atualizar o Xiri".into()),
+                None => Err("Nenhuma atualização mais recente do Xiri foi encontrada. Verifique as versões primeiro.".into()),
+            };
+            shared.xiri_busy.store(false, Ordering::SeqCst);
+            match result {
+                Ok(()) => shared.emit(Event::LauncherRestarting),
+                Err(error) => shared.emit(Event::JobFinished {
+                    app: xiri_launcher_core::catalog::LAUNCHER_ID.into(), result: Err(error),
+                }),
+            }
         });
     }
     fn check_destinia(&self) {
@@ -465,7 +503,7 @@ impl Backend for XiriBackend {
                 }
                 self.shared.emit(Event::Paused { app, download: None });
             }
-            Command::UpdateLauncher => {}
+            Command::UpdateLauncher => self.update_xiri()
             Command::Configure(_) | Command::FetchScreenshots { .. } => {}
         }
     }
@@ -473,7 +511,7 @@ impl Backend for XiriBackend {
         std::mem::take(&mut *self.shared.events.lock().unwrap_or_else(PoisonError::into_inner))
     }
     fn capabilities(&self) -> Capabilities {
-        Capabilities { manage_apps: cfg!(all(windows, target_arch = "x86_64")), reveal_label: "Show in file manager", self_update: false }
+        Capabilities { manage_apps: cfg!(all(windows, target_arch = "x86_64")), reveal_label: "Show in file manager", self_update: xiri_self_update::available() }
     }
     fn platform(&self) -> Option<Platform> {
         Some(Platform { os: Os::Windows, arch: Arch::X64 })
@@ -496,6 +534,8 @@ mod tests {
             processes: Mutex::new(BTreeMap::new()),
             checking: AtomicBool::new(false),
             destinia_busy: AtomicBool::new(false),
+            xiri_busy: AtomicBool::new(false),
+            xiri_latest: Mutex::new(None),
             destinia_latest: Mutex::new(None),
             destinia_download: Mutex::new(None),
             warning: Mutex::new(None),
