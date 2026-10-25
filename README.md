@@ -18,7 +18,7 @@ Escolha a pasta existente do Destinia, feche o jogo e clique **Baixar e instalar
 
 A instalação escolhida precisa conter `VERSION`, `game`, `host` e `host_zoom`. Bibliotecas e dados originais continuam sendo necessários. [Passo a passo e segurança](docs/DESTINIA_UPDATES.md).
 
-A versão web do Destinia não é alterada pelo Xiri. Consulte o [README do Destinia](https://github.com/sugyua/destinia) para saber o status web realmente publicado.
+A versão web do Destinia não é alterada pelo Xiri. O ícone exibido para Destinia é **o PNG original do APK Android** (`game/res/drawable-hdpi/icon.png`), copiado sem alterações e com [procedência documentada](assets/app-icons/DESTINIA_SOURCE.md). Consulte o [README do Destinia](https://github.com/sugyua/destinia) para saber o status web realmente publicado.
 
 ## Arquitetura
 
