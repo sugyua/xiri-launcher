@@ -20,7 +20,15 @@ A instalação escolhida precisa conter `VERSION`, `game`, `host` e `host_zoom`.
 
 A versão web do Destinia não é alterada pelo Xiri. O ícone exibido para Destinia é **o PNG original do APK Android** (`game/res/drawable-hdpi/icon.png`), copiado sem alterações e com [procedência documentada](assets/app-icons/DESTINIA_SOURCE.md). Consulte o [README do Destinia](https://github.com/sugyua/destinia) para saber o status web realmente publicado.
 
-## Arquitetura
+## Atualizar o próprio Xiri Launcher
+
+O Xiri também verifica se há uma Release mais recente do **próprio Xiri Launcher** no repositório público `sugyua/xiri-launcher`. A tela principal mostra **Verificar atualização do Xiri** e, quando uma versão mais nova está disponível, **Atualizar Xiri Launcher**.
+
+Ao clicar para atualizar, o Xiri baixa o ZIP Windows portátil oficial, confere `SHA256SUMS.txt` e a versão do pacote, prepara um executável auxiliar, fecha a instância antiga, substitui apenas os arquivos do pacote com backup/reversão em caso de falha e abre a versão nova. O botão exige uma ação explícita do usuário: não força atualização silenciosa. **Não exige abrir o GitHub nem instalar o GitHub CLI.** As configurações e arquivos adicionais do usuário são mantidos.
+
+A instalação integrada requer o Xiri **portátil Windows x64**, extraído com `xiri-launcher.exe` e `VERSION` no mesmo diretório. A opção não altera os arquivos do Destinia ou a versão web. Se algo estiver ausente, o Xiri informa o impedimento sem substituir o executável.
+
+
 
 | Diretório | Finalidade |
 | --- | --- |
