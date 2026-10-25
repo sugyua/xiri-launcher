@@ -232,14 +232,14 @@ impl XiriBackend {
         });
     }
     fn install_destinia(&self, folder: String, tag: String) {
-        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) { return; }
+        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
         let shared = self.shared.clone();
         std::thread::spawn(move || {
             let release = shared.destinia_latest.lock().unwrap_or_else(PoisonError::into_inner).clone();
             let result = match release {
-                Some(release) if release.tag == tag => {
-                    destinia_updates::install(&shared.root, Path::new(&folder), &release)
-                },
+                Some(release) if release.tag == tag => destinia_updates::install(&shared.root, Path::new(&folder), &release),
                 _ => Err("A versão do Destinia mudou. Verifique novamente antes de instalar.".into()),
             };
             shared.emit(Event::DestiniaInstalled(result));

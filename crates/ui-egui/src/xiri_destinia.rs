@@ -6,7 +6,9 @@ use xiri_launcher_core::protocol::Command;
 
 impl LauncherUi {
     pub(crate) fn destinia_controls(&mut self, ui: &mut egui::Ui, host: &mut dyn Host) {
-        if !self.caps.manage_apps { return; }
+        if !self.caps.manage_apps {
+            return;
+        }
         let info = self.destinia_release.clone();
         let folder = self.settings.destinia_folder.clone();
         egui::Frame::group(ui.style()).show(ui, |ui| {
@@ -69,7 +71,9 @@ impl LauncherUi {
                         if widgets::button(ui, "Confirmar instalação", Kind::Primary, 0.0).clicked() { approve = true; }
                     });
                 });
-            if cancel { self.destinia_confirm = false; }
+            if cancel {
+                self.destinia_confirm = false;
+            }
             if approve {
                 self.destinia_confirm = false;
                 if let (Some(Ok(release)), Some(dir)) = (info, folder) {

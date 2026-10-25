@@ -28,7 +28,10 @@ pub enum Command {
     /// Download a verified Destinia Windows ZIP into Xiri's local download folder.
     DestiniaDownload,
     /// Apply verified package over an existing Destinia folder after a user confirmation.
-    DestiniaInstall { folder: String, tag: String },
+    DestiniaInstall {
+        folder: String,
+        tag: String,
+    },
     /// Show the verified ZIP in Explorer; never extract or overwrite game files.
     DestiniaReveal,
     /// Look again at what's installed.

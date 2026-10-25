@@ -35,9 +35,11 @@ struct Entry {
 
 fn asset_name(tag: &str) -> Option<String> {
     let suffix = tag.strip_prefix('v')?;
-    if suffix.len() < 3 || suffix.len() > 64
+    if suffix.len() < 3
+        || suffix.len() > 64
         || !suffix.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
-        || !suffix.as_bytes()[0].is_ascii_digit() || !suffix.contains('.')
+        || !suffix.as_bytes()[0].is_ascii_digit()
+        || !suffix.contains('.')
     {
         return None;
     }
@@ -108,7 +110,9 @@ fn digest(path: &Path) -> Result<String, String> {
     let mut hasher = Sha256::new();
     loop {
         let n = file.read(&mut buffer).map_err(|e| e.to_string())?;
-        if n == 0 { break; }
+        if n == 0 {
+            break;
+        }
         hasher.update(&buffer[..n]);
     }
     Ok(format!("{:x}", hasher.finalize()))
@@ -117,7 +121,9 @@ fn digest(path: &Path) -> Result<String, String> {
 pub fn download(root: &Path, release: &DestiniaReleaseInfo) -> Result<PathBuf, String> {
     let zip_url = release_url(release, &release.asset)?;
     let hash_url = release_url(release, &format!("{}.sha256", release.asset))?;
-    if root.as_os_str().is_empty() { return Err("Pasta de dados Xiri indisponível".into()); }
+    if root.as_os_str().is_empty() {
+        return Err("Pasta de dados Xiri indisponível".into());
+    }
     let http = Http::xiri()?;
     let checksum = http.get_text(&hash_url)?.ok_or("SHA-256 da Release ausente")?;
     let expected = parse_checksum(&checksum, &release.asset)?;
@@ -137,9 +143,10 @@ pub fn download(root: &Path, release: &DestiniaReleaseInfo) -> Result<PathBuf, S
 
 #[cfg(windows)]
 fn package_files(zip_path: &Path, release: &DestiniaReleaseInfo) -> Result<Vec<PathBuf>, String> {
-    let mut archive = zip::ZipArchive::new(File::open(zip_path).map_err(|e| e.to_string())?)
-        .map_err(|e| format!("ZIP inválido: {e}"))?;
-    if archive.len() == 0 || archive.len() > 2000 { return Err("Quantidade de arquivos ZIP inválida".into()); }
+    let mut archive = zip::ZipArchive::new(File::open(zip_path).map_err(|e| e.to_string())?).map_err(|e| format!("ZIP inválido: {e}"))?;
+    if archive.len() == 0 || archive.len() > 2000 {
+        return Err("Quantidade de arquivos ZIP inválida".into());
+    }
     let prefix = format!("destinia-{}/", release.tag.strip_prefix('v').ok_or("Tag inválida")?);
     let mut names = Vec::new();
     let mut seen = HashSet::new();
@@ -147,12 +154,22 @@ fn package_files(zip_path: &Path, release: &DestiniaReleaseInfo) -> Result<Vec<P
     for i in 0..archive.len() {
         let file = archive.by_index(i).map_err(|e| e.to_string())?;
         let name = file.name();
-        if !name.starts_with(&prefix) { return Err("ZIP contém arquivos fora da pasta da Release".into()); }
+        if !name.starts_with(&prefix) {
+            return Err("ZIP contém arquivos fora da pasta da Release".into());
+        }
         let relative = name.strip_prefix(&prefix).ok_or("Prefixo ZIP inválido")?.trim_end_matches('/');
-        if relative.is_empty() && file.is_dir() { continue; }
-        if !safe_relative(relative) || file.is_symlink() { return Err("ZIP contém caminho perigoso".into()); }
-        if !seen.insert(relative.to_ascii_lowercase()) { return Err("ZIP com nomes duplicados".into()); }
-        if file.is_dir() { continue; }
+        if relative.is_empty() && file.is_dir() {
+            continue;
+        }
+        if !safe_relative(relative) || file.is_symlink() {
+            return Err("ZIP contém caminho perigoso".into());
+        }
+        if !seen.insert(relative.to_ascii_lowercase()) {
+            return Err("ZIP com nomes duplicados".into());
+        }
+        if file.is_dir() {
+            continue;
+        }
         total = total.checked_add(file.size()).ok_or("Tamanho descompactado inválido")?;
         if total > MAX_UNPACKED || file.size() > file.compressed_size().max(1).saturating_mul(200) {
             return Err("ZIP excede os limites de extração".into());
@@ -160,27 +177,32 @@ fn package_files(zip_path: &Path, release: &DestiniaReleaseInfo) -> Result<Vec<P
         names.push(PathBuf::from(relative));
     }
     for mandatory in ["VERSION", "Destinia.exe", "Destinia Zoom.exe", "host/build/destinia_host.exe", "host_zoom/build/destinia_host.exe"] {
-        if !seen.contains(&mandatory.to_ascii_lowercase()) { return Err(format!("Arquivo obrigatório ausente no ZIP: {mandatory}")); }
+        if !seen.contains(&mandatory.to_ascii_lowercase()) {
+            return Err(format!("Arquivo obrigatório ausente no ZIP: {mandatory}"));
+        }
     }
-    let version_index = (0..archive.len()).find(|&i| {
-        archive.by_index(i).ok().is_some_and(|f| f.name() == format!("{prefix}VERSION"))
-    }).ok_or("VERSION ausente")?;
+    let version_index =
+        (0..archive.len()).find(|&i| archive.by_index(i).ok().is_some_and(|f| f.name() == format!("{prefix}VERSION"))).ok_or("VERSION ausente")?;
     let mut version = String::new();
-    archive.by_index(version_index).map_err(|e| e.to_string())?
-        .take(80).read_to_string(&mut version).map_err(|e| e.to_string())?;
-    if version.trim() != version_from_tag(&release.tag)? { return Err("VERSION no pacote não corresponde à Release".into()); }
+    archive.by_index(version_index).map_err(|e| e.to_string())?.take(80).read_to_string(&mut version).map_err(|e| e.to_string())?;
+    if version.trim() != version_from_tag(&release.tag)? {
+        return Err("VERSION no pacote não corresponde à Release".into());
+    }
     Ok(names)
 }
 
 #[cfg(windows)]
 fn safe_relative(name: &str) -> bool {
     use xiri_launcher_core::xiri::valid_entry_path;
-    if !valid_entry_path(name) { return false; }
+    if !valid_entry_path(name) {
+        return false;
+    }
     let low = name.to_ascii_lowercase();
     let first = low.split('/').next().unwrap_or("");
     !matches!(first, "game" | "save" | "saves" | "userdata" | "profiles" | ".git")
         && !first.starts_with(".xiri")
-        && !low.ends_with(".dat") && !low.ends_with(".sav")
+        && !low.ends_with(".dat")
+        && !low.ends_with(".sav")
 }
 
 #[cfg(windows)]
@@ -202,7 +224,9 @@ fn extract_verified(zip_path: &Path, staging: &Path, release: &DestiniaReleaseIn
         let name = format!("{prefix}{}", relative.to_string_lossy().replace('\\', "/"));
         let mut input = archive.by_name(&name).map_err(|_| "Entrada do ZIP ausente")?;
         let output = staging.join(relative);
-        if let Some(parent) = output.parent() { fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
+        if let Some(parent) = output.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
         let mut target = File::create(&output).map_err(|e| e.to_string())?;
         let size = input.size();
         if std::io::copy(&mut input, &mut target).map_err(|e| e.to_string())? != size {
@@ -221,9 +245,13 @@ fn safe_target(root: &Path, relative: &Path) -> Result<PathBuf, String> {
         path.push(component);
         match fs::symlink_metadata(&path) {
             Ok(m) => {
-                if m.file_type().is_symlink() { return Err("Link simbólico dentro da pasta de instalação".into()); }
+                if m.file_type().is_symlink() {
+                    return Err("Link simbólico dentro da pasta de instalação".into());
+                }
                 let resolved = path.canonicalize().map_err(|e| e.to_string())?;
-                if !resolved.starts_with(root) { return Err("Arquivo redirecionado para fora do Destinia".into()); }
+                if !resolved.starts_with(root) {
+                    return Err("Arquivo redirecionado para fora do Destinia".into());
+                }
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => return Err(e.to_string()),
@@ -235,18 +263,22 @@ fn safe_target(root: &Path, relative: &Path) -> Result<PathBuf, String> {
 #[cfg(windows)]
 fn apply_files(source: &Path, user_folder: &Path, files: &[PathBuf]) -> Result<String, String> {
     let root = user_folder.canonicalize().map_err(|_| "Pasta Destinia não existe")?;
-    if !root.join("VERSION").is_file() || !root.join("game").is_dir()
-        || !root.join("host").is_dir() || !root.join("host_zoom").is_dir()
-    {
+    if !root.join("VERSION").is_file() || !root.join("game").is_dir() || !root.join("host").is_dir() || !root.join("host_zoom").is_dir() {
         return Err("Selecione a raiz de uma instalação existente do Destinia (VERSION, game, host e host_zoom).".into());
     }
-    if root.to_string_lossy().len() < 5 { return Err("Pasta de instalação insegura".into()); }
+    if root.to_string_lossy().len() < 5 {
+        return Err("Pasta de instalação insegura".into());
+    }
     // Validate all destinations before starting an installation.
     for rel in files {
         let name = rel.to_string_lossy().replace('\\', "/");
-        if !safe_relative(&name) { return Err("Arquivo protegido no pacote".into()); }
+        if !safe_relative(&name) {
+            return Err("Arquivo protegido no pacote".into());
+        }
         let target = safe_target(&root, rel)?;
-        if target.exists() && !target.is_file() { return Err(format!("Destino não é arquivo: {}", rel.display())); }
+        if target.exists() && !target.is_file() {
+            return Err(format!("Destino não é arquivo: {}", rel.display()));
+        }
     }
     // Backup is created on the SAME drive, for rename and exact rollback.
     let backup = tempfile::Builder::new().prefix(".xiri-destinia-backup-").tempdir_in(&root).map_err(|e| e.to_string())?;
@@ -264,7 +296,9 @@ fn apply_files(source: &Path, user_folder: &Path, files: &[PathBuf]) -> Result<S
             let had_previous = target.is_file();
             if had_previous {
                 let old = backup.path().join(rel);
-                if let Some(folder) = old.parent() { fs::create_dir_all(folder).map_err(|e| e.to_string())?; }
+                if let Some(folder) = old.parent() {
+                    fs::create_dir_all(folder).map_err(|e| e.to_string())?;
+                }
                 fs::rename(&target, &old).map_err(|_| format!("Feche o Destinia antes da atualização: {}", rel.display()))?;
             }
             applied.push((rel.clone(), had_previous));
@@ -277,19 +311,29 @@ fn apply_files(source: &Path, user_folder: &Path, files: &[PathBuf]) -> Result<S
         for (rel, existed) in applied.iter().rev() {
             let target = root.join(rel);
             if target.is_file() {
-                if let Err(e) = fs::remove_file(&target) { problems.push(format!("{}: {e}", rel.display())); }
+                if let Err(e) = fs::remove_file(&target) {
+                    problems.push(format!("{}: {e}", rel.display()));
+                }
             }
             if *existed {
                 let old = backup.path().join(rel);
-                if let Err(e) = fs::rename(&old, &target) { problems.push(format!("rollback {}: {e}", rel.display())); }
+                if let Err(e) = fs::rename(&old, &target) {
+                    problems.push(format!("rollback {}: {e}", rel.display()));
+                }
             }
         }
-        if problems.is_empty() { return Err(format!("{error}. Alterações revertidas; seus dados originais continuam no lugar.")); }
+        if problems.is_empty() {
+            return Err(format!("{error}. Alterações revertidas; seus dados originais continuam no lugar."));
+        }
         let rescue = backup.keep();
         return Err(format!("{error}. Rollback incompleto: {}. Backups preservados em {}.", problems.join("; "), rescue.display()));
     }
     let saved = backup.keep();
-    Ok(format!("Destinia atualizado. {} arquivos do pacote aplicados; arquivos extras e saves preservados. Backup em {}.", files.len(), saved.display()))
+    Ok(format!(
+        "Destinia atualizado. {} arquivos do pacote aplicados; arquivos extras e saves preservados. Backup em {}.",
+        files.len(),
+        saved.display()
+    ))
 }
 
 #[cfg(windows)]
@@ -356,7 +400,9 @@ mod tests {
     fn failed_second_file_restores_all_overwritten_files() {
         let dir = tempfile::tempdir().unwrap();
         let game = dir.path().join("Destinia");
-        for p in ["game", "host", "host_zoom"] { fs::create_dir_all(game.join(p)).unwrap(); }
+        for p in ["game", "host", "host_zoom"] {
+            fs::create_dir_all(game.join(p)).unwrap();
+        }
         fs::write(game.join("VERSION"), "0.9.1").unwrap();
         fs::write(game.join("game/savefile.sav"), "safeguarded").unwrap();
         let staged = dir.path().join("incoming");
@@ -381,7 +427,14 @@ mod tests {
         let prefix = "destinia-0.9.2-beta/";
         {
             let mut zip = zip::ZipWriter::new(File::create(&path).unwrap());
-            for file in ["VERSION", "Destinia.exe", "Destinia Zoom.exe", "host/build/destinia_host.exe", "host_zoom/build/destinia_host.exe", "game/secret.dat"] {
+            for file in [
+                "VERSION",
+                "Destinia.exe",
+                "Destinia Zoom.exe",
+                "host/build/destinia_host.exe",
+                "host_zoom/build/destinia_host.exe",
+                "game/secret.dat",
+            ] {
                 zip.start_file(format!("{prefix}{file}"), SimpleFileOptions::default()).unwrap();
                 zip.write_all(if file == "VERSION" { b"0.9.2" } else { b"x" }).unwrap();
             }
