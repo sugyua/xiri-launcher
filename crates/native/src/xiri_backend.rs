@@ -1,9 +1,11 @@
 //! Xiri's backend. Network and disk work run away from egui's frame thread.
+use crate::destinia_updates;
 #[cfg(windows)]
 use crate::http::Transfer;
 use crate::http::{Http, Stop};
 use crate::source::{GitHubSource, ReleaseSource};
 use crate::xiri_repositories::{self, CatalogCache};
+use crate::xiri_self_update;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -11,7 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 #[cfg(windows)]
 use xiri_launcher_core::protocol::JobPhase;
-use xiri_launcher_core::protocol::{Backend, Capabilities, Command, Event, LatestRelease, Origin, Source};
+use xiri_launcher_core::protocol::{Backend, Capabilities, Command, DestiniaReleaseInfo, Event, LatestRelease, Origin, Source};
 #[cfg(windows)]
 use xiri_launcher_core::xiri::package_asset;
 use xiri_launcher_core::xiri::{AppInfo, EntryKind, PackageEntry};
@@ -32,6 +34,11 @@ struct Shared {
     jobs: Mutex<BTreeMap<String, Arc<Stop>>>,
     processes: Mutex<BTreeMap<String, std::process::Child>>,
     checking: AtomicBool,
+    destinia_busy: AtomicBool,
+    xiri_busy: AtomicBool,
+    xiri_latest: Mutex<Option<Release>>,
+    destinia_latest: Mutex<Option<DestiniaReleaseInfo>>,
+    destinia_download: Mutex<Option<PathBuf>>,
     warning: Mutex<Option<String>>,
     wake: Box<dyn Fn() + Send + Sync>,
     root: PathBuf,
@@ -135,6 +142,11 @@ impl XiriBackend {
             jobs: Mutex::new(BTreeMap::new()),
             processes: Mutex::new(BTreeMap::new()),
             checking: AtomicBool::new(false),
+            destinia_busy: AtomicBool::new(false),
+            xiri_busy: AtomicBool::new(false),
+            xiri_latest: Mutex::new(None),
+            destinia_latest: Mutex::new(None),
+            destinia_download: Mutex::new(None),
             warning: Mutex::new(None),
             wake: Box::new(wake),
             root,
@@ -190,9 +202,101 @@ impl XiriBackend {
             if let Err(e) = answer {
                 shared.catalog_event(Some(e));
             }
+            match xiri_self_update::latest() {
+                Ok(Some(release)) => {
+                    *shared.xiri_latest.lock().unwrap_or_else(PoisonError::into_inner) = Some(release.clone());
+                    shared.emit(Event::LauncherUpdate(release));
+                }
+                Ok(None) => {}
+                Err(e) => log::info!("Xiri self-update check: {e}"),
+            }
             shared.emit(Event::CheckFinished { at: crate::now(), source: Source::GitHubApi, rate_limited_until: None });
             shared.checking.store(false, Ordering::SeqCst);
         });
+    }
+    fn update_xiri(&self) {
+        if self.shared.xiri_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let shared = self.shared.clone();
+        std::thread::spawn(move || {
+            let release = shared.xiri_latest.lock().unwrap_or_else(PoisonError::into_inner).clone();
+            let result = match release {
+                Some(release)
+                    if !shared.destinia_busy.load(Ordering::SeqCst) && shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).is_empty() =>
+                {
+                    xiri_self_update::schedule(&release, &shared.root, |phase| {
+                        shared.emit(Event::Progress { app: xiri_launcher_core::catalog::LAUNCHER_ID.to_string(), phase });
+                    })
+                }
+                Some(_) => Err("Feche programas e conclua outros downloads antes de atualizar o Xiri".into()),
+                None => Err("Nenhuma atualização mais recente do Xiri foi encontrada. Verifique as versões primeiro.".into()),
+            };
+            shared.xiri_busy.store(false, Ordering::SeqCst);
+            match result {
+                Ok(()) => shared.emit(Event::LauncherRestarting),
+                Err(error) => shared.emit(Event::JobFinished { app: xiri_launcher_core::catalog::LAUNCHER_ID.into(), result: Err(error) }),
+            }
+        });
+    }
+    fn check_destinia(&self) {
+        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let shared = self.shared.clone();
+        std::thread::spawn(move || {
+            let result = destinia_updates::check();
+            *shared.destinia_latest.lock().unwrap_or_else(PoisonError::into_inner) = result.as_ref().ok().cloned();
+            shared.emit(Event::DestiniaChecked(result));
+            shared.destinia_busy.store(false, Ordering::SeqCst);
+        });
+    }
+    fn download_destinia(&self) {
+        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let shared = self.shared.clone();
+        std::thread::spawn(move || {
+            let release = shared.destinia_latest.lock().unwrap_or_else(PoisonError::into_inner).clone();
+            let result = match release {
+                Some(release) => destinia_updates::download(&shared.root, &release),
+                None => Err("Verifique primeiro a versao do Destinia".into()),
+            };
+            if let Ok(path) = &result {
+                *shared.destinia_download.lock().unwrap_or_else(PoisonError::into_inner) = Some(path.clone());
+            }
+            shared.emit(Event::DestiniaDownloaded(result.map(|p| p.display().to_string())));
+            shared.destinia_busy.store(false, Ordering::SeqCst);
+        });
+    }
+    fn install_destinia(&self, folder: String, tag: String) {
+        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let shared = self.shared.clone();
+        std::thread::spawn(move || {
+            let release = shared.destinia_latest.lock().unwrap_or_else(PoisonError::into_inner).clone();
+            let result = match release {
+                Some(release) if release.tag == tag => destinia_updates::install(&shared.root, Path::new(&folder), &release),
+                _ => Err("A versão do Destinia mudou. Verifique novamente antes de instalar.".into()),
+            };
+            shared.emit(Event::DestiniaInstalled(result));
+            shared.destinia_busy.store(false, Ordering::SeqCst);
+        });
+    }
+    fn reveal_destinia(&self) {
+        let file = self.shared.destinia_download.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        #[cfg(windows)]
+        if let Some(file) = file
+            && let Some(folder) = file.parent()
+        {
+            let result = std::process::Command::new("explorer.exe").arg(folder).spawn();
+            if result.is_err() {
+                self.shared.emit(Event::DestiniaDownloaded(Err("Nao foi possivel abrir a pasta de downloads".into())));
+            }
+        }
+        #[cfg(not(windows))]
+        let _ = file;
     }
     fn run_job(&self, id: String, operation: impl FnOnce(&Arc<Shared>, &str, &Stop) -> Result<String, String> + Send + 'static) {
         if self.shared.root.as_os_str().is_empty() || !xiri_launcher_core::xiri::valid_entry_path(&id) || id.contains('/') {
@@ -362,6 +466,10 @@ impl Backend for XiriBackend {
     fn send(&mut self, command: Command) {
         match command {
             Command::CheckForUpdates { .. } => self.check(),
+            Command::DestiniaCheck => self.check_destinia(),
+            Command::DestiniaDownload => self.download_destinia(),
+            Command::DestiniaInstall { folder, tag } => self.install_destinia(folder, tag),
+            Command::DestiniaReveal => self.reveal_destinia(),
             Command::Detect => self.shared.catalog_event(None),
             Command::Install { app } | Command::Replace { app } => self.run_job(app, install),
             Command::Launch { app } => self.run_job(app, |shared, id, _| launch(shared, id)),
@@ -395,7 +503,7 @@ impl Backend for XiriBackend {
                 }
                 self.shared.emit(Event::Paused { app, download: None });
             }
-            Command::UpdateLauncher => {}
+            Command::UpdateLauncher => self.update_xiri(),
             Command::Configure(_) | Command::FetchScreenshots { .. } => {}
         }
     }
@@ -403,7 +511,11 @@ impl Backend for XiriBackend {
         std::mem::take(&mut *self.shared.events.lock().unwrap_or_else(PoisonError::into_inner))
     }
     fn capabilities(&self) -> Capabilities {
-        Capabilities { manage_apps: cfg!(all(windows, target_arch = "x86_64")), reveal_label: "Show in file manager", self_update: false }
+        Capabilities {
+            manage_apps: cfg!(all(windows, target_arch = "x86_64")),
+            reveal_label: "Show in file manager",
+            self_update: xiri_self_update::available(),
+        }
     }
     fn platform(&self) -> Option<Platform> {
         Some(Platform { os: Os::Windows, arch: Arch::X64 })
@@ -425,6 +537,11 @@ mod tests {
             jobs: Mutex::new(BTreeMap::new()),
             processes: Mutex::new(BTreeMap::new()),
             checking: AtomicBool::new(false),
+            destinia_busy: AtomicBool::new(false),
+            xiri_busy: AtomicBool::new(false),
+            xiri_latest: Mutex::new(None),
+            destinia_latest: Mutex::new(None),
+            destinia_download: Mutex::new(None),
             warning: Mutex::new(None),
             wake: Box::new(|| {}),
             root: root.into(),

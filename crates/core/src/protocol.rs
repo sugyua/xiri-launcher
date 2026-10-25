@@ -23,6 +23,17 @@ pub enum Command {
     CheckForUpdates {
         force: bool,
     },
+    /// Query published public Destinia Windows releases without user credentials.
+    DestiniaCheck,
+    /// Download a verified Destinia Windows ZIP into Xiri's local download folder.
+    DestiniaDownload,
+    /// Apply verified package over an existing Destinia folder after a user confirmation.
+    DestiniaInstall {
+        folder: String,
+        tag: String,
+    },
+    /// Show the verified ZIP in Explorer; never extract or overwrite game files.
+    DestiniaReveal,
     /// Look again at what's installed.
     Detect,
     /// Install or update an app to its latest release.
@@ -176,9 +187,21 @@ impl Source {
     }
 }
 
+/// A vetted, downloadable Windows release of the public Destinia project.
+/// Only release tags and filenames are carried to the UI, never credentials.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DestiniaReleaseInfo {
+    pub tag: String,
+    pub asset: String,
+    pub size: u64,
+}
+
 /// Something the backend wants the UI to know.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
+    DestiniaChecked(Result<DestiniaReleaseInfo, String>),
+    DestiniaDownloaded(Result<String, String>),
+    DestiniaInstalled(Result<String, String>),
     AppIcon {
         app: String,
         bytes: Vec<u8>,

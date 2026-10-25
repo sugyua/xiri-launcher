@@ -96,6 +96,8 @@ pub struct Settings {
     /// Interface language: `auto` (follow the system) or a language code from the registry
     /// (`en`, `ru`, `zh-CN`, `de`, `fr`, `pt-BR`, `pl`).
     pub language: String,
+    /// Existing Destinia installation selected explicitly by the user.
+    pub destinia_folder: Option<String>,
     /// Closing the window keeps the launcher in the tray (menu bar) instead of quitting.
     pub close_to_tray: bool,
     /// macOS: showing the window brings it to the current desktop (Space) instead of switching to
@@ -189,6 +191,7 @@ impl Default for Settings {
             sort_descending: false,
             theme: ThemeChoice::System,
             language: "auto".to_string(),
+            destinia_folder: None,
             close_to_tray: true,
             show_on_current_desktop: true,
             check_every: CheckEvery::Hour,

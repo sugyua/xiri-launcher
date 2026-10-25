@@ -84,6 +84,9 @@ impl LauncherUi {
                 if widgets::nav_icon(ui, "⚙", tl!("Settings"), h, false).clicked() {
                     self.dialog = Some(Dialog::Settings);
                 }
+                if self.caps.manage_apps && widgets::nav_icon(ui, "↻", "Atualizações", h, self.updates_panel_open).clicked() {
+                    self.updates_panel_open = !self.updates_panel_open;
+                }
                 // The controls reserve their actual widths before the secondary text gets space.
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     if ui.available_width() >= 17.0 + widgets::hud_galley(ui, tl!("Xiri App Library"), t.muted).size().x {

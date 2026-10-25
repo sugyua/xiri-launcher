@@ -9,6 +9,7 @@
 
 pub mod backend;
 pub mod desktop_entry;
+pub mod destinia_updates;
 pub mod detect;
 pub mod feed_throttle;
 pub mod http;
@@ -30,6 +31,7 @@ pub mod xiri_backend;
 #[cfg(windows)]
 pub mod xiri_package;
 pub mod xiri_repositories;
+pub mod xiri_self_update;
 
 pub use backend::NativeBackend;
 
