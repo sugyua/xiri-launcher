@@ -14,7 +14,8 @@ impl LauncherUi {
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 // APK resource reused byte-for-byte; no generated or redrawn artwork.
-                ui.add(egui::Image::new(egui::include_image!("../../../assets/app-icons/destinia-original.png")).fit_to_exact_size(egui::vec2(40.0, 40.0)));
+                let icon = egui::include_image!("../../../assets/app-icons/destinia-original.png");
+                ui.add(egui::Image::new(icon).fit_to_exact_size(egui::vec2(40.0, 40.0)));
                 ui.strong("Destinia · atualizações");
                 match &info {
                     Some(Ok(release)) => { ui.label(format!("Versão disponível: {}", release.tag)); }
