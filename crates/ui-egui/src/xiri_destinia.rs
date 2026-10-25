@@ -5,6 +5,27 @@ use crate::widgets::{self, Kind};
 use xiri_launcher_core::protocol::Command;
 
 impl LauncherUi {
+    /// Check for Xiri Releases and install them after a single explicit button click.
+    pub(crate) fn xiri_update_controls(&mut self, ui: &mut egui::Ui) {
+        if !self.caps.manage_apps { return; }
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.strong(format!("Xiri Launcher {}", env!("CARGO_PKG_VERSION")));
+                if let Some(release) = self.launcher_update.clone() {
+                    ui.label(format!("Nova versão: {}", release.version_label()));
+                    if let Some(phase) = self.launcher_job {
+                        ui.label(format!("Atualização em andamento: {phase:?}"));
+                    } else if widgets::button(ui, "Atualizar Xiri Launcher", Kind::Primary, 0.0).clicked() {
+                        self.send(Command::UpdateLauncher);
+                    }
+                } else if widgets::button(ui, "Verificar atualização do Xiri", Kind::Secondary, 0.0).clicked() {
+                    self.send(Command::CheckForUpdates { force: true });
+                }
+            });
+            ui.small("Baixa a Release oficial, valida SHA-256, fecha o Xiri para substituir os arquivos e reabre a versão nova.");
+        });
+        ui.add_space(9.0);
+    }
     pub(crate) fn destinia_controls(&mut self, ui: &mut egui::Ui, host: &mut dyn Host) {
         if !self.caps.manage_apps {
             return;
