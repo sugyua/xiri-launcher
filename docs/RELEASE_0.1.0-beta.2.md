@@ -1,13 +1,15 @@
-# Xiri Launcher 0.1.0 Beta 2 — Destinia sem abrir GitHub
+# Xiri Launcher 0.1.0 Beta 2 — Atualização direta do Destinia
 
-- Painel próprio na interface do Windows para consultar Releases do **Destinia privado**, sem abrir navegador.
-- Usa autenticação existente do **GitHub CLI** (`gh auth login` apenas na configuração inicial); Xiri não armazena tokens, senhas nem segredos.
-- Download direto do ZIP **Windows** e respectivo arquivo `.sha256`, SHA-256 verificado antes da conclusão. Arquivos são guardados isoladamente em `%LOCALAPPDATA%\Xiri Launcher\destinia-downloads\`.
-- Botão para abrir a pasta do ZIP verificado.
-- Preserva interface/catálogo público e os demais recursos da Beta 1.
+## Novidades
+- Acesso às Releases **públicas** de `sugyua/destinia` dentro do Xiri, sem GitHub CLI e sem abrir o site.
+- Consulta automática/periódica e opção de notificação de nova Release do jogo.
+- Escolha e memorização da pasta de instalação do Destinia no Windows.
+- Botão **Baixar e instalar atualização**, com confirmação da pasta e da versão.
+- Download oficial do pacote Windows, SHA-256 validado, verificações de segurança do ZIP e extração temporária antes da instalação.
+- Substituição dos arquivos que aparecem no ZIP e inclusão de novos, sem apagar os arquivos exclusivos da instalação.
+- Backup dos arquivos substituídos, com tentativa de reversão automática em caso de erro; pastas `game`, saves, perfis e arquivos de dados ficam protegidos.
 
-## Limitações
+## Avisos
+O Xiri precisa que o Destinia esteja fechado e que a pasta já contenha uma instalação válida (`VERSION`, `game`, `host`, `host_zoom`). As dependências externas e os arquivos originais não acompanham o pacote. A atualização do Destinia no Xiri não modifica a versão web. A instalação física no PC do proprietário requer validação manual.
 
-**O Xiri não aplica atualizações do jogo automaticamente nesta Beta.** Isso evita sobrescrever saves, arquivos `game`, dependências e configurações pessoais. A extração do ZIP e os testes de gameplay continuam sob responsabilidade do proprietário. É necessário ter `gh` instalado/autenticado no Windows com acesso ao Destinia privado.
-
-Testes automatizados e CI não comprovam um login GitHub real no PC. Confirme o acesso privado e o download em sua máquina. A versão web do Destinia não é atualizada por este launcher. Leia `docs/DESTINIA_UPDATES.md` para detalhes.
+Este é um lançamento Beta do Xiri. O pacote inclui `xiri-launcher.exe`, documentação, licenças e checksum SHA-256. A Beta 1 anterior continua disponível.
