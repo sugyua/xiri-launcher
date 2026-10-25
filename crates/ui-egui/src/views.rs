@@ -84,9 +84,7 @@ impl LauncherUi {
                 if widgets::nav_icon(ui, "⚙", tl!("Settings"), h, false).clicked() {
                     self.dialog = Some(Dialog::Settings);
                 }
-                if self.caps.manage_apps
-                    && widgets::nav_icon(ui, "↻", "Atualizações", h, self.updates_panel_open).clicked()
-                {
+                if self.caps.manage_apps && widgets::nav_icon(ui, "↻", "Atualizações", h, self.updates_panel_open).clicked() {
                     self.updates_panel_open = !self.updates_panel_open;
                 }
                 // The controls reserve their actual widths before the secondary text gets space.
