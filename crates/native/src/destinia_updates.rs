@@ -292,6 +292,9 @@ fn apply_files(source: &Path, user_folder: &Path, files: &[PathBuf]) -> Result<S
 
 #[cfg(windows)]
 pub fn install(data_root: &Path, folder: &Path, release: &DestiniaReleaseInfo) -> Result<String, String> {
+    if fs::read_to_string(folder.join("VERSION")).ok().is_some_and(|current| current.trim() == version_from_tag(&release.tag).unwrap_or("")) {
+        return Ok(format!("Destinia {} já está instalado nesta pasta; nada foi modificado.", release.tag));
+    }
     // Download and stage EVERYTHING before modifying the installation.
     let zip_file = download(data_root, release)?;
     let work = tempfile::tempdir_in(data_root).map_err(|e| e.to_string())?;
@@ -344,5 +347,44 @@ mod tests {
         assert!(safe_relative("docs/SAVES_E_LOGS.md"));
         assert!(!safe_relative("game/character.sav"));
         assert!(!safe_relative("../escape.exe"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn failed_second_file_restores_all_overwritten_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let game = dir.path().join("Destinia");
+        for p in ["game", "host", "host_zoom"] { fs::create_dir_all(game.join(p)).unwrap(); }
+        fs::write(game.join("VERSION"), "0.9.1").unwrap();
+        fs::write(game.join("game/savefile.sav"), "safeguarded").unwrap();
+        let staged = dir.path().join("incoming");
+        fs::create_dir(&staged).unwrap();
+        fs::write(staged.join("VERSION"), "0.9.2").unwrap();
+        let files = vec![PathBuf::from("VERSION"), PathBuf::from("missing-file.exe")];
+        let error = apply_files(&staged, &game, &files).unwrap_err();
+        assert!(error.contains("revertidas"));
+        assert_eq!(fs::read_to_string(game.join("VERSION")).unwrap(), "0.9.1");
+        assert_eq!(fs::read_to_string(game.join("game/savefile.sav")).unwrap(), "safeguarded");
+        assert!(!game.join("missing-file.exe").exists());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn malicious_or_game_overwriting_zip_is_rejected_before_install() {
+        use std::io::Write;
+        use zip::write::SimpleFileOptions;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.zip");
+        let release = DestiniaReleaseInfo { tag: "v0.9.2-beta".into(), asset: "destinia-0.9.2-beta-windows-x64.zip".into(), size: 1000 };
+        let prefix = "destinia-0.9.2-beta/";
+        {
+            let mut zip = zip::ZipWriter::new(File::create(&path).unwrap());
+            for file in ["VERSION", "Destinia.exe", "Destinia Zoom.exe", "host/build/destinia_host.exe", "host_zoom/build/destinia_host.exe", "game/secret.dat"] {
+                zip.start_file(format!("{prefix}{file}"), SimpleFileOptions::default()).unwrap();
+                zip.write_all(if file == "VERSION" { b"0.9.2" } else { b"x" }).unwrap();
+            }
+            zip.finish().unwrap();
+        }
+        assert!(package_files(&path, &release).is_err());
     }
 }
