@@ -1,11 +1,11 @@
 //! Xiri's backend. Network and disk work run away from egui's frame thread.
 use crate::destinia_updates;
-use crate::xiri_self_update;
 #[cfg(windows)]
 use crate::http::Transfer;
 use crate::http::{Http, Stop};
 use crate::source::{GitHubSource, ReleaseSource};
 use crate::xiri_repositories::{self, CatalogCache};
+use crate::xiri_self_update;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -222,7 +222,9 @@ impl XiriBackend {
         std::thread::spawn(move || {
             let release = shared.xiri_latest.lock().unwrap_or_else(PoisonError::into_inner).clone();
             let result = match release {
-                Some(release) if !shared.destinia_busy.load(Ordering::SeqCst) && shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).is_empty() => {
+                Some(release)
+                    if !shared.destinia_busy.load(Ordering::SeqCst) && shared.jobs.lock().unwrap_or_else(PoisonError::into_inner).is_empty() =>
+                {
                     xiri_self_update::schedule(&release, &shared.root, |phase| {
                         shared.emit(Event::Progress { app: xiri_launcher_core::catalog::LAUNCHER_ID.to_string(), phase });
                     })
@@ -233,9 +235,7 @@ impl XiriBackend {
             shared.xiri_busy.store(false, Ordering::SeqCst);
             match result {
                 Ok(()) => shared.emit(Event::LauncherRestarting),
-                Err(error) => shared.emit(Event::JobFinished {
-                    app: xiri_launcher_core::catalog::LAUNCHER_ID.into(), result: Err(error),
-                }),
+                Err(error) => shared.emit(Event::JobFinished { app: xiri_launcher_core::catalog::LAUNCHER_ID.into(), result: Err(error) }),
             }
         });
     }
@@ -511,7 +511,11 @@ impl Backend for XiriBackend {
         std::mem::take(&mut *self.shared.events.lock().unwrap_or_else(PoisonError::into_inner))
     }
     fn capabilities(&self) -> Capabilities {
-        Capabilities { manage_apps: cfg!(all(windows, target_arch = "x86_64")), reveal_label: "Show in file manager", self_update: xiri_self_update::available() }
+        Capabilities {
+            manage_apps: cfg!(all(windows, target_arch = "x86_64")),
+            reveal_label: "Show in file manager",
+            self_update: xiri_self_update::available(),
+        }
     }
     fn platform(&self) -> Option<Platform> {
         Some(Platform { os: Os::Windows, arch: Arch::X64 })

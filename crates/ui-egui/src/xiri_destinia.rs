@@ -7,7 +7,9 @@ use xiri_launcher_core::protocol::Command;
 impl LauncherUi {
     /// Check for Xiri Releases and install them after a single explicit button click.
     pub(crate) fn xiri_update_controls(&mut self, ui: &mut egui::Ui) {
-        if !self.caps.manage_apps { return; }
+        if !self.caps.manage_apps {
+            return;
+        }
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.strong(format!("Xiri Launcher {}", env!("CARGO_PKG_VERSION")));
