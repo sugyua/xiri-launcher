@@ -231,6 +231,21 @@ impl XiriBackend {
             shared.destinia_busy.store(false, Ordering::SeqCst);
         });
     }
+    fn install_destinia(&self, folder: String, tag: String) {
+        if self.shared.destinia_busy.swap(true, Ordering::SeqCst) { return; }
+        let shared = self.shared.clone();
+        std::thread::spawn(move || {
+            let release = shared.destinia_latest.lock().unwrap_or_else(PoisonError::into_inner).clone();
+            let result = match release {
+                Some(release) if release.tag == tag => {
+                    destinia_updates::install(&shared.root, Path::new(&folder), &release)
+                },
+                _ => Err("A versão do Destinia mudou. Verifique novamente antes de instalar.".into()),
+            };
+            shared.emit(Event::DestiniaInstalled(result));
+            shared.destinia_busy.store(false, Ordering::SeqCst);
+        });
+    }
     fn reveal_destinia(&self) {
         let file = self.shared.destinia_download.lock().unwrap_or_else(PoisonError::into_inner).clone();
         #[cfg(windows)]
@@ -415,6 +430,7 @@ impl Backend for XiriBackend {
             Command::CheckForUpdates { .. } => self.check(),
             Command::DestiniaCheck => self.check_destinia(),
             Command::DestiniaDownload => self.download_destinia(),
+            Command::DestiniaInstall { folder, tag } => self.install_destinia(folder, tag),
             Command::DestiniaReveal => self.reveal_destinia(),
             Command::Detect => self.shared.catalog_event(None),
             Command::Install { app } | Command::Replace { app } => self.run_job(app, install),
