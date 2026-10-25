@@ -503,7 +503,7 @@ impl Backend for XiriBackend {
                 }
                 self.shared.emit(Event::Paused { app, download: None });
             }
-            Command::UpdateLauncher => self.update_xiri()
+            Command::UpdateLauncher => self.update_xiri(),
             Command::Configure(_) | Command::FetchScreenshots { .. } => {}
         }
     }
