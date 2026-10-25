@@ -117,6 +117,7 @@ pub struct LauncherUi {
     pub(crate) destinia_release: Option<Result<xiri_launcher_core::protocol::DestiniaReleaseInfo, String>>,
     pub(crate) destinia_busy: bool,
     pub(crate) destinia_zip: Option<String>,
+    pub(crate) destinia_confirm: bool,
     pub(crate) last_source: Option<Source>,
     pub(crate) rate_limited_until: Option<i64>,
     pub(crate) launcher_update: Option<Release>,
@@ -207,6 +208,7 @@ impl LauncherUi {
             destinia_release: None,
             destinia_busy: false,
             destinia_zip: None,
+            destinia_confirm: false,
             last_source: None,
             rate_limited_until: None,
             launcher_update: None,
@@ -404,6 +406,14 @@ impl LauncherUi {
             Event::DestiniaChecked(result) => {
                 self.destinia_busy = false;
                 self.destinia_release = Some(result);
+                true
+            }
+            Event::DestiniaInstalled(result) => {
+                self.destinia_busy = false;
+                match result {
+                    Ok(msg) => self.toast(ctx, msg, false),
+                    Err(error) => self.toast(ctx, error, true),
+                }
                 true
             }
             Event::DestiniaDownloaded(result) => {
@@ -697,6 +707,7 @@ impl LauncherUi {
             .frame(egui::Frame::new().fill(tokens.bg).inner_margin(egui::Margin { left: 20, right: 20, top: 18, bottom: 0 }))
             .show(ui, |ui| {
                 self.toolbar(ui);
+                self.destinia_controls(ui, host);
                 ui.add_space(18.0);
                 let ids = self.visible_ids();
                 // The table is wider than a narrow window: let it scroll sideways too.
