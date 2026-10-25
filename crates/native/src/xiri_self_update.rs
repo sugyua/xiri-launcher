@@ -3,8 +3,11 @@
 //! this path pins the unsigned portable ZIP to SHA256SUMS.txt from our own repo.
 //! A detached copy of this launcher waits until the original process exits.
 use std::ffi::OsString;
+#[cfg(windows)]
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(windows)]
+use std::path::PathBuf;
 #[cfg(windows)]
 use sha2::{Digest, Sha256};
 use xiri_launcher_core::release::{self, Release};
@@ -61,6 +64,7 @@ fn sha_file(path: &Path) -> Result<String, String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
+#[cfg(any(windows, test))]
 fn checksum_for(body: &str, asset: &str) -> Result<String, String> {
     release::parse_sha256sums(body).into_iter()
         .find_map(|(sum, name)| (name == asset).then_some(sum))
