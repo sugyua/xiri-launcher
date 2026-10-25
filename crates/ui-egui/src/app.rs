@@ -708,6 +708,7 @@ impl LauncherUi {
             .show(ui, |ui| {
                 self.toolbar(ui);
                 self.destinia_controls(ui, host);
+                self.xiri_update_controls(ui);
                 ui.add_space(18.0);
                 let ids = self.visible_ids();
                 // The table is wider than a narrow window: let it scroll sideways too.
