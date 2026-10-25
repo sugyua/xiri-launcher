@@ -5,13 +5,17 @@
 use std::ffi::OsString;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+#[cfg(windows)]
 use sha2::{Digest, Sha256};
 use xiri_launcher_core::release::{self, Release};
 use xiri_launcher_core::protocol::JobPhase;
 use xiri_launcher_core::version;
-use crate::http::{Fetched, Http, Stop, Transfer};
+use crate::http::{Fetched, Http};
+#[cfg(windows)]
+use crate::http::{Stop, Transfer};
 
 const REPO: &str = "sugyua/xiri-launcher";
+#[cfg(any(windows, test))]
 const FINISH: &str = "--xiri-apply-verified-update";
 const MAX_ZIP: u64 = 256 * 1024 * 1024;
 
@@ -44,6 +48,7 @@ fn suitable(release: &Release) -> bool {
     })
 }
 
+#[cfg(windows)]
 fn sha_file(path: &Path) -> Result<String, String> {
     let mut source = std::fs::File::open(path).map_err(|e| e.to_string())?;
     let mut hasher = Sha256::new();
@@ -58,10 +63,11 @@ fn sha_file(path: &Path) -> Result<String, String> {
 
 fn checksum_for(body: &str, asset: &str) -> Result<String, String> {
     release::parse_sha256sums(body).into_iter()
-        .find_map(|(name, sum)| (name == asset).then_some(sum))
+        .find_map(|(sum, name)| (name == asset).then_some(sum))
         .ok_or("SHA256SUMS.txt não contém o ZIP Windows desta versão".into())
 }
 
+#[cfg(windows)]
 fn archive_version(path: &Path, tag: &str) -> Result<(), String> {
     let expected = tag.strip_prefix('v').ok_or("Tag inválida")?;
     let mut archive = zip::ZipArchive::new(std::fs::File::open(path).map_err(|e| e.to_string())?)
@@ -85,9 +91,10 @@ fn archive_version(path: &Path, tag: &str) -> Result<(), String> {
 }
 
 /// Preconditions for changing this portable installation. Never write into another app's folder.
+#[cfg(windows)]
 fn current_install() -> Result<PathBuf, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?.canonicalize().map_err(|e| e.to_string())?;
-    if exe.file_name().is_none_or(|n| !n.eq_ignore_ascii_case("xiri-launcher.exe")) {
+    if exe.file_name().is_none_or(|n| !n.to_string_lossy().eq_ignore_ascii_case("xiri-launcher.exe")) {
         return Err("Atualização integrada disponível para o Xiri Launcher Windows portátil".into());
     }
     let folder = exe.parent().ok_or("Pasta do Xiri ausente")?;
@@ -152,7 +159,7 @@ pub fn finish(args: &[OsString]) -> Option<Result<(), String>> {
         let [_, pid, target, archive, checksum, previous, tag] = args else { return Err("Argumentos de atualização inválidos".into()); };
         let pid = pid.to_string_lossy().parse::<u32>().map_err(|_| "PID de atualização inválido")?;
         let target = PathBuf::from(target);
-        let archive = PathBuf::from(archive);
+        let archive = PathBuf::from(archive).canonicalize().map_err(|e| e.to_string())?;
         let tag = tag.to_str().ok_or("Tag inválida")?;
         if asset_name(tag).is_none_or(|n| archive.file_name().is_none_or(|f| f != n)) {
             return Err("Pacote não corresponde à Release Xiri".into());
@@ -166,7 +173,7 @@ pub fn finish(args: &[OsString]) -> Option<Result<(), String>> {
         let helper = std::env::current_exe().map_err(|e| e.to_string())?.canonicalize().map_err(|e| e.to_string())?;
         if helper != folder.join("xiri-launcher-updater.exe") { return Err("Auxiliar de atualização em local inválido".into()); }
         let target = target.canonicalize().map_err(|e| e.to_string())?;
-        if target.file_name().is_none_or(|n| !n.eq_ignore_ascii_case("xiri-launcher.exe")) {
+        if target.file_name().is_none_or(|n| !n.to_string_lossy().eq_ignore_ascii_case("xiri-launcher.exe")) {
             return Err("Este executável não é o Xiri Launcher".into());
         }
         let expected = checksum.to_str().ok_or("Checksum inválido")?;
@@ -195,7 +202,7 @@ pub fn finish(args: &[OsString]) -> Option<Result<(), String>> {
                 }
                 Ok(())
             })?;
-        let mut restart = std::process::Command::new(&target);
+        let restart = std::process::Command::new(&target);
         crate::process::spawn_detached(restart).map_err(|e| format!("Xiri atualizado, mas não foi possível reabri-lo: {e}"))?;
         Ok(())
     })())
