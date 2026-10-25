@@ -4,14 +4,18 @@
 use crate::http::{Fetched, Http, Stop};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+#[cfg(windows)]
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io::Read;
+#[cfg(windows)]
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use xiri_launcher_core::protocol::DestiniaReleaseInfo;
 
 const REPO: &str = "sugyua/destinia";
 const MAX_ARCHIVE: u64 = 512 * 1024 * 1024;
+#[cfg(windows)]
 const MAX_UNPACKED: u64 = 1024 * 1024 * 1024;
 
 #[derive(Deserialize)]
@@ -42,7 +46,12 @@ fn asset_name(tag: &str) -> Option<String> {
 
 fn version_from_tag(tag: &str) -> Result<&str, String> {
     let suffix = tag.strip_prefix('v').ok_or("Tag Destinia inválida")?;
-    suffix.strip_suffix("-beta").ok_or("Só são aceitas Releases Beta Windows do Destinia".into())
+    let version = suffix.strip_suffix("-beta").unwrap_or(suffix);
+    let parts = version.split('.').collect::<Vec<_>>();
+    if (parts.len() != 2 && parts.len() != 3) || parts.iter().any(|v| v.is_empty() || !v.bytes().all(|b| b.is_ascii_digit())) {
+        return Err("Tag do Destinia não é uma versão numérica suportada".into());
+    }
+    Ok(version)
 }
 
 /// GitHub lists Releases newest first. Ignore source-only and incomplete releases.
@@ -131,7 +140,7 @@ fn package_files(zip_path: &Path, release: &DestiniaReleaseInfo) -> Result<Vec<P
     let mut archive = zip::ZipArchive::new(File::open(zip_path).map_err(|e| e.to_string())?)
         .map_err(|e| format!("ZIP inválido: {e}"))?;
     if archive.len() == 0 || archive.len() > 2000 { return Err("Quantidade de arquivos ZIP inválida".into()); }
-    let prefix = format!("destinia-{}-beta/", version_from_tag(&release.tag)?);
+    let prefix = format!("destinia-{}/", release.tag.strip_prefix('v').ok_or("Tag inválida")?);
     let mut names = Vec::new();
     let mut seen = HashSet::new();
     let mut total = 0u64;
@@ -188,7 +197,7 @@ fn inspect_archive(_: &Path, _: &DestiniaReleaseInfo) -> Result<(), String> {
 fn extract_verified(zip_path: &Path, staging: &Path, release: &DestiniaReleaseInfo) -> Result<Vec<PathBuf>, String> {
     let list = package_files(zip_path, release)?; // preflight before writing anything
     let mut archive = zip::ZipArchive::new(File::open(zip_path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-    let prefix = format!("destinia-{}-beta/", version_from_tag(&release.tag)?);
+    let prefix = format!("destinia-{}/", release.tag.strip_prefix('v').ok_or("Tag inválida")?);
     for relative in &list {
         let name = format!("{prefix}{}", relative.to_string_lossy().replace('\\', "/"));
         let mut input = archive.by_name(&name).map_err(|_| "Entrada do ZIP ausente")?;
