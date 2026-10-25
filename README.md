@@ -10,13 +10,15 @@ Launcher dos programas e jogos de [sugyua](https://github.com/sugyua), baseado n
 
 Extraia o ZIP completo e abra **`xiri-launcher.exe`**, na raiz da pasta extraída. Não é necessário instalar Rust. O botão **Code → Download ZIP** baixa somente o código-fonte e não inclui o executável.
 
-## Destinia privado: consultar e baixar sem abrir o GitHub
+## Destinia: baixar e instalar atualizações sem abrir o GitHub
 
-O Xiri agora tem uma faixa **Destinia** na tela principal. Depois de autenticar o [GitHub CLI](https://cli.github.com/) no Windows uma única vez com `gh auth login` (conta com acesso ao repositório privado), o Xiri pode consultar as versões do Destinia e **baixar o ZIP Windows e seu arquivo .sha256 diretamente**, verificando SHA-256 e integridade básica do pacote. Use **Verificar versão**, **Baixar ZIP verificado** e **Abrir pasta do ZIP**.
+O repositório do Destinia é **público**. Na seção **Destinia · atualizações**, o Xiri verifica as Releases públicas automaticamente ou pelo botão **Verificar**, sem login, token ou GitHub CLI.
 
-O download fica em `%LOCALAPPDATA%\\Xiri Launcher\\destinia-downloads\\<tag>`. **Não há instalação automática nesta Beta**: o Xiri nunca sobrescreve seus saves, a pasta `game`, BATs ou instalações existentes. A extração/instalação do ZIP verificado ainda é manual, após fechar o jogo e fazer backup. [Passo a passo e limites](docs/DESTINIA_UPDATES.md).
+Escolha a pasta existente do Destinia, feche o jogo e clique **Baixar e instalar atualização**. O Xiri solicita confirmação, baixa o ZIP Windows da Release com verificação SHA-256, prepara os arquivos, substitui os que possuem o mesmo caminho e adiciona os novos, **sem apagar arquivos extras**. Ele preserva `game`, saves e perfis; guarda backup das versões antigas dos arquivos substituídos e tenta reverter alterações em caso de falha.
 
-A versão web do Destinia não é modificada pelo Xiri. Consulte [README Destinia](https://github.com/sugyua/destinia) para a revisão web realmente publicada.
+A instalação escolhida precisa conter `VERSION`, `game`, `host` e `host_zoom`. Bibliotecas e dados originais continuam sendo necessários. [Passo a passo e segurança](docs/DESTINIA_UPDATES.md).
+
+A versão web do Destinia não é alterada pelo Xiri. Consulte o [README do Destinia](https://github.com/sugyua/destinia) para saber o status web realmente publicado.
 
 ## Arquitetura
 
