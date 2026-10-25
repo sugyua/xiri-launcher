@@ -2,6 +2,7 @@
 
 ## Novidades
 - Acesso às Releases **públicas** de `sugyua/destinia` dentro do Xiri, sem GitHub CLI e sem abrir o site.
+- Ícone do **Destinia original**, extraído de `game/res/drawable-hdpi/icon.png` do APK, reproduzido byte a byte no painel do jogo e no catálogo quando aplicável; sem imagens geradas por IA.
 - Consulta automática/periódica e opção de notificação de nova Release do jogo.
 - Escolha e memorização da pasta de instalação do Destinia no Windows.
 - Botão **Baixar e instalar atualização**, com confirmação da pasta e da versão.
