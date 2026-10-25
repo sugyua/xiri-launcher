@@ -1,21 +1,24 @@
-# Destinia no Xiri Launcher (Windows) — Beta 0.1.0-beta.2
+# Atualizar Destinia diretamente pelo Xiri Launcher — Windows
 
-O repositório `sugyua/destinia` é **privado**. O catálogo público do Xiri não mostra repositórios privados; esta integração oferece uma faixa independente de **Destinia** no topo da janela. O Xiri não pede senha, token ou login nas configurações nem copia segredos para o cache.
+O projeto [Destinia](https://github.com/sugyua/destinia) é **público**. Esta integração não precisa do GitHub CLI, login, senhas ou tokens e funciona consultando as Releases públicas de `sugyua/destinia`.
 
-## Primeira configuração no Windows
+## Como usar
+1. Abra o **Xiri Launcher 0.1.0 Beta 2** no Windows x64.
+2. Na seção **Destinia · atualizações**, veja a versão disponível ou clique **Verificar**. O Xiri consulta o GitHub na inicialização e nos intervalos de atualização já configurados, podendo notificar quando há uma nova Release.
+3. Clique **Escolher pasta** e selecione a raiz da instalação existente do Destinia. Ela deve conter as pastas `game`, `host`, `host_zoom` e o arquivo `VERSION`.
+4. **Feche o Destinia**. Clique **Baixar e instalar atualização** e confirme a pasta e a versão no diálogo.
+5. O Xiri baixa o ZIP Windows correto e confere o **SHA-256 publicado no GitHub**. Antes de escrever na instalação, verifica os caminhos do ZIP e extrai todos os arquivos em um diretório temporário.
+6. O Xiri substitui os arquivos com o mesmo caminho no pacote e inclui novos arquivos, **sem apagar arquivos extras** da sua instalação. Um backup dos arquivos substituídos é guardado em uma subpasta `.xiri-destinia-backup-…` na raiz do jogo.
 
-1. Instale o [GitHub CLI](https://cli.github.com/) e confirme que `gh --version` funciona no Prompt/PowerShell.
-2. Faça a autenticação uma única vez: `gh auth login` (conta autorizada a visualizar `sugyua/destinia`).
-3. Abra `xiri-launcher.exe` Beta 0.1.0-beta.2. Ele consulta as Releases do Destinia no início e nas verificações periódicas, ou use **Verificar versão**.
-4. Use **Baixar ZIP verificado**. O Xiri baixa o ZIP **Windows** da Release privada e seu arquivo `.sha256` usando o `gh`, confirma o hash SHA-256 e os nomes esperados. O progresso é processado em thread, sem travar a interface.
-5. Use **Abrir pasta do ZIP**; os downloads verificados ficam em `%LOCALAPPDATA%\Xiri Launcher\destinia-downloads\<tag>\`.
+Se houver erro durante a instalação, o Xiri tenta restaurar automaticamente os arquivos anteriores; se a restauração também falhar, mantém o backup e mostra uma mensagem de erro. **O processo não remove a pasta `game`, os saves, perfis ou arquivos `.sav`/`.dat`.**
 
-**Importante:** esta fase **não substitui automaticamente os arquivos do jogo**. Feche o Destinia, faça backup e extraia o ZIP Windows na instalação apropriada com os arquivos originais `game` e suas dependências. A pasta de saves continua externa e deve ser preservada. Não extraia o ZIP de fontes para jogar.
+## Proteções e limites
 
-## Limitações e segurança
+- Não instala o ZIP de código-fonte, somente o pacote `destinia-<versão>-windows-x64.zip` com SHA-256 correspondente.
+- Rejeita ZIP com caminhos perigosos, symlinks, nomes repetidos, conteúdo fora da pasta da Release, arquivos obrigatórios ausentes ou excesso de tamanho.
+- Não grava em pastas `game`, `save`, `saves`, `userdata` ou `profiles`; não remove arquivos que não existam no pacote. Backups são preservados para recuperação.
+- Não substitui os programas em uso com sucesso aparente: feche ambos os hosts Destinia antes de confirmar. Testes físicos continuam necessários.
+- Os executáveis Destinia dependem dos arquivos originais `game` e das bibliotecas externas/MSYS2 descritas em `INSTALL.md` no pacote do Destinia. O Xiri não instala essas dependências externas.
+- A versão web do Destinia é independente; a atualização Windows não publica código novo no site.
 
-- A autenticação e permissões do repositório privado são gerenciadas somente pelo GitHub CLI. Se houver erro de acesso, use `gh auth status` e confirme as permissões; não cole tokens em chats, READMEs ou issues.
-- O Xiri não executa programas baixados nem atualiza em silêncio. Isso evita substituir saves, BATs pessoais, arquivos `game`/DLLs ou instalações em uso.
-- O download é fixado ao repositório `sugyua/destinia`, tag formatada e nome de ZIP da versão; SHA-256 é obrigatório e conferido antes de disponibilizar. Pacotes incompletos não são anunciados como sucesso.
-- Testes automáticos do parser e do workflow não substituem execução em um Windows físico com login e permissão para o repositório privado.
-- A **versão web do Destinia é independente**. O Xiri baixa apenas a versão Windows; o link da versão web e seu status estão no README do Destinia.
+A presença de saves apenas fora do GitHub não garante por si só sua integridade. O Xiri os protege explicitamente e mantém backups dos arquivos que efetivamente substitui.
