@@ -31,6 +31,7 @@ pub mod xiri_backend;
 #[cfg(windows)]
 pub mod xiri_package;
 pub mod xiri_repositories;
+pub mod xiri_self_update;
 
 pub use backend::NativeBackend;
 
