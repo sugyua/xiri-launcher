@@ -3,7 +3,10 @@
 use egui::ImageSource;
 
 /// The 128 px icon of a Craft App.
-pub fn app(_id: &str) -> Option<ImageSource<'static>> {
+pub fn app(id: &str) -> Option<ImageSource<'static>> {
+    if id.eq_ignore_ascii_case("destinia") {
+        return Some(egui::include_image!("../../../assets/app-icons/destinia-original.png"));
+    }
     Some(egui::include_image!("../../../assets/xiri/mark.png"))
 }
 
