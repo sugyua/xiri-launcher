@@ -206,7 +206,7 @@ pub fn finish(args: &[OsString]) -> Option<Result<(), String>> {
         let target = PathBuf::from(target);
         let archive = PathBuf::from(archive).canonicalize().map_err(|e| e.to_string())?;
         let tag = tag.to_str().ok_or("Tag inválida")?;
-        if asset_name(tag).is_none_or(|n| archive.file_name().is_none_or(|f| f != n)) {
+        if asset_name(tag).is_none_or(|n| archive.file_name().is_none_or(|f| f.to_string_lossy() != n)) {
             return Err("Pacote não corresponde à Release Xiri".into());
         }
         let base = dirs::data_local_dir().ok_or("AppData Local indisponível")?.join("Xiri Launcher").join("xiri-self-updates");
