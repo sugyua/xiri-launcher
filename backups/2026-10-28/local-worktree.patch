@@ -1,0 +1,379 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 507fb37..ed4227c 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -274,98 +274,6 @@ version = "0.7.8"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
+ 
+-[[package]]
+-name = "xiri-launcher"
+-version = "0.1.0-beta.1"
+-dependencies = [
+- "xiri-launcher-core",
+- "xiri-launcher-native",
+- "xiri-launcher-ui-egui",
+- "eframe",
+- "egui",
+- "env_logger",
+- "image",
+- "log",
+- "notify-rust",
+- "objc2 0.6.5",
+- "objc2-app-kit 0.3.2",
+- "objc2-foundation 0.3.2",
+- "rfd",
+- "ron",
+- "serde",
+- "tray-icon",
+- "winreg",
+- "winresource",
+- "zbus",
+-]
+-
+-[[package]]
+-name = "xiri-launcher-core"
+-version = "0.1.0-beta.1"
+-dependencies = [
+- "jiff",
+- "semver",
+- "serde",
+- "serde_json",
+-]
+-
+-[[package]]
+-name = "xiri-launcher-native"
+-version = "0.1.0-beta.1"
+-dependencies = [
+- "xiri-launcher-core",
+- "dirs 6.0.0",
+- "dunce",
+- "flate2",
+- "log",
+- "plist",
+- "serde",
+- "serde_json",
+- "sha2",
+- "tar",
+- "tempfile",
+- "ureq",
+- "verifysign",
+- "winreg",
+- "winsafe",
+- "zip",
+-]
+-
+-[[package]]
+-name = "xiri-launcher-ui-egui"
+-version = "0.1.0-beta.1"
+-dependencies = [
+- "xiri-launcher-core",
+- "egui",
+- "egui_extras",
+- "egui_kittest",
+- "image",
+- "jiff",
+- "js-sys",
+- "log",
+- "serde",
+- "serde_json",
+- "skrifa",
+- "sys-locale",
+- "wasm-bindgen",
+-]
+-
+-[[package]]
+-name = "xiri-launcher-web"
+-version = "0.1.0-beta.1"
+-dependencies = [
+- "xiri-launcher-core",
+- "xiri-launcher-ui-egui",
+- "eframe",
+- "egui",
+- "js-sys",
+- "log",
+- "serde_json",
+- "wasm-bindgen",
+- "wasm-bindgen-futures",
+- "web-sys",
+-]
+-
+ [[package]]
+ name = "as-raw-xcb-connection"
+ version = "1.0.1"
+@@ -5861,6 +5769,98 @@ version = "0.3.11"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "163b33ed8786455e2fa5d72f554057ce3f3182425434f756cd39c99839d88e23"
+ 
++[[package]]
++name = "xiri-launcher"
++version = "0.1.0-beta.1"
++dependencies = [
++ "eframe",
++ "egui",
++ "env_logger",
++ "image",
++ "log",
++ "notify-rust",
++ "objc2 0.6.5",
++ "objc2-app-kit 0.3.2",
++ "objc2-foundation 0.3.2",
++ "rfd",
++ "ron",
++ "serde",
++ "tray-icon",
++ "winreg",
++ "winresource",
++ "xiri-launcher-core",
++ "xiri-launcher-native",
++ "xiri-launcher-ui-egui",
++ "zbus",
++]
++
++[[package]]
++name = "xiri-launcher-core"
++version = "0.1.0-beta.1"
++dependencies = [
++ "jiff",
++ "semver",
++ "serde",
++ "serde_json",
++]
++
++[[package]]
++name = "xiri-launcher-native"
++version = "0.1.0-beta.1"
++dependencies = [
++ "dirs 6.0.0",
++ "dunce",
++ "flate2",
++ "log",
++ "plist",
++ "serde",
++ "serde_json",
++ "sha2",
++ "tar",
++ "tempfile",
++ "ureq",
++ "verifysign",
++ "winreg",
++ "winsafe",
++ "xiri-launcher-core",
++ "zip",
++]
++
++[[package]]
++name = "xiri-launcher-ui-egui"
++version = "0.1.0-beta.1"
++dependencies = [
++ "egui",
++ "egui_extras",
++ "egui_kittest",
++ "image",
++ "jiff",
++ "js-sys",
++ "log",
++ "serde",
++ "serde_json",
++ "skrifa",
++ "sys-locale",
++ "wasm-bindgen",
++ "xiri-launcher-core",
++]
++
++[[package]]
++name = "xiri-launcher-web"
++version = "0.1.0-beta.1"
++dependencies = [
++ "eframe",
++ "egui",
++ "js-sys",
++ "log",
++ "serde_json",
++ "wasm-bindgen",
++ "wasm-bindgen-futures",
++ "web-sys",
++ "xiri-launcher-core",
++ "xiri-launcher-ui-egui",
++]
++
+ [[package]]
+ name = "xkbcommon-dl"
+ version = "0.4.2"
+@@ -5894,7 +5894,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
+ 
+ [[package]]
+ name = "xtask"
+-version = "0.7.0"
++version = "0.1.0-beta.1"
+ dependencies = [
+  "jiff",
+ ]
+diff --git a/README.md b/README.md
+index 6772877..fee0cb6 100644
+--- a/README.md
++++ b/README.md
+@@ -1,42 +1,66 @@
+-# Xiri Launcher para Windows — em desenvolvimento
+-
+-> **A adaptação está em desenvolvimento. Ainda não há uma versão Windows validada para uso.**
+-
+-Launcher dos programas e jogos de [sugyua](https://github.com/sugyua), baseado no código aberto do [ArtCraft Launcher](https://github.com/storytold/craft-launcher). Preserva o desenho da interface nativa Rust/egui, com identidade Xiri e catálogo consultado no GitHub.
+-
+-## Arquitetura
+-
+-| Diretório | Finalidade |
+-| --- | --- |
+-| `crates/core` | Contrato de catálogo, manifestos e releases |
+-| `crates/native` | GitHub, cache, pacotes e execução local |
+-| `crates/ui-egui` | Interface compartilhada, grade, tabela e configurações |
+-| `apps/xiri-launcher` | Aplicativo desktop |
+-| `assets/xiri` | Identidade própria Xiri |
+-
+-## Recursos presentes no código
+-
+-- Catálogo público do perfil sugyua, com paginação e cache.
+-- Consulta das releases e associação de programas locais EXE ou PowerShell.
+-- Contrato `xiri.json` para pacotes ZIP Windows, com SHA256SUMS.txt.
+-- Grade, tabela, busca, temas e configurações baseados na interface original.
+-
+-A presença no código não equivale a validação de execução. O progresso da compilação está em [Actions](https://github.com/sugyua/xiri-launcher/actions).
+-
+-## Dependências
+-
+-Windows x64 para o alvo inicial. Rust estável >= 1.90 e ferramentas C++/SDK Windows para compilar. Os programas distribuídos têm seus próprios requisitos; consulte seus READMEs. Os pacotes Destinia não são considerados autossuficientes.
+-
+-## Compilar
+-
+-```powershell
+-cargo build --release -p xiri-launcher
+-```
+-
+-## Desenvolvimento e distribuição
+-
+-O workflow gera um artefato Windows somente após passar pelas verificações configuradas. Ainda não foi publicada uma release validada.
+-
+-## Publicação
+-
+-Adaptação solicitada por sugyua em 22/10/2026. Créditos originais e licenças MIT/Apache-2.0 preservados. A marca Xiri é independente do ArtCraft. Consulte NOTICE e ATTRIBUTION.md.
++# Xiri Launcher para Windows — 0.1.0 Beta 2
++
++> **Versão Beta: compilação e testes automatizados aprovados; teste manual no Windows e instalação real de programas ainda pendentes.**
++
++Launcher dos programas e jogos de [sugyua](https://github.com/sugyua), baseado no código aberto do [ArtCraft Launcher](https://github.com/storytold/craft-launcher). Preserva o desenho da interface nativa Rust/egui, com identidade Xiri e catálogo consultado no GitHub.
++
++## Baixar e abrir
++
++**[Baixar Xiri Launcher 0.1.0 Beta 2](https://github.com/sugyua/xiri-launcher/releases/tag/v0.1.0-beta.2)** — o pacote Windows inclui `xiri-launcher.exe` e SHA256SUMS.txt. [Beta 1 anterior](https://github.com/sugyua/xiri-launcher/releases/tag/v0.1.0-beta.1).
++
++Extraia o ZIP completo e abra **`xiri-launcher.exe`**, na raiz da pasta extraída. Não é necessário instalar Rust. O botão **Code → Download ZIP** baixa somente o código-fonte e não inclui o executável.
++
++## Destinia: baixar e instalar atualizações sem abrir o GitHub
++
++O repositório do Destinia é **público**. Na seção **Destinia · atualizações**, o Xiri verifica as Releases públicas automaticamente ou pelo botão **Verificar**, sem login, token ou GitHub CLI.
++
++Escolha a pasta existente do Destinia, feche o jogo e clique **Baixar e instalar atualização**. O Xiri solicita confirmação, baixa o ZIP Windows da Release com verificação SHA-256, prepara os arquivos, substitui os que possuem o mesmo caminho e adiciona os novos, **sem apagar arquivos extras**. Ele preserva `game`, saves e perfis; guarda backup das versões antigas dos arquivos substituídos e tenta reverter alterações em caso de falha.
++
++A instalação escolhida precisa conter `VERSION`, `game`, `host` e `host_zoom`. Bibliotecas e dados originais continuam sendo necessários. [Passo a passo e segurança](docs/DESTINIA_UPDATES.md).
++
++A versão web do Destinia não é alterada pelo Xiri. O ícone exibido para Destinia é **o PNG original do APK Android** (`game/res/drawable-hdpi/icon.png`), copiado sem alterações e com [procedência documentada](assets/app-icons/DESTINIA_SOURCE.md). Consulte o [README do Destinia](https://github.com/sugyua/destinia) para saber o status web realmente publicado.
++
++## Atualizar o próprio Xiri Launcher
++
++O Xiri também verifica se há uma Release mais recente do **próprio Xiri Launcher** no repositório público `sugyua/xiri-launcher`. A tela principal mostra **Verificar atualização do Xiri** e, quando uma versão mais nova está disponível, **Atualizar Xiri Launcher**.
++
++Ao clicar para atualizar, o Xiri baixa o ZIP Windows portátil oficial, confere `SHA256SUMS.txt` e a versão do pacote, prepara um executável auxiliar, fecha a instância antiga, substitui apenas os arquivos do pacote com backup/reversão em caso de falha e abre a versão nova. O botão exige uma ação explícita do usuário: não força atualização silenciosa. **Não exige abrir o GitHub nem instalar o GitHub CLI.** As configurações e arquivos adicionais do usuário são mantidos.
++
++A instalação integrada requer o Xiri **portátil Windows x64**, extraído com `xiri-launcher.exe` e `VERSION` no mesmo diretório. A opção não altera os arquivos do Destinia ou a versão web. Se algo estiver ausente, o Xiri informa o impedimento sem substituir o executável.
++
++
++
++| Diretório | Finalidade |
++| --- | --- |
++| `crates/core` | Contrato de catálogo, manifestos e releases |
++| `crates/native` | GitHub, cache, pacotes e execução local |
++| `crates/ui-egui` | Interface compartilhada, grade, tabela e configurações |
++| `apps/xiri-launcher` | Aplicativo desktop |
++| `assets/xiri` | Identidade própria Xiri |
++
++## Recursos presentes no código
++
++- Catálogo público do perfil sugyua, com paginação e cache.
++- Consulta das releases e associação de programas locais EXE ou PowerShell.
++- Contrato `xiri.json` para pacotes ZIP Windows, com SHA256SUMS.txt.
++- Grade, tabela, busca, temas e configurações baseados na interface original.
++
++A presença no código não equivale a validação de execução. O progresso da compilação está em [Actions](https://github.com/sugyua/xiri-launcher/actions).
++
++## Dependências
++
++Windows x64 para o alvo inicial. Rust estável >= 1.95 e ferramentas C++/SDK Windows para compilar. Rust é necessário apenas para compilação; o ZIP compilado não exige instalar Rust. Os programas distribuídos têm seus próprios requisitos; consulte seus READMEs. Os pacotes Destinia não são considerados autossuficientes.
++
++## Compilar
++
++```powershell
++cargo build --release -p xiri-launcher
++```
++
++## Desenvolvimento e distribuição
++
++A Beta 2 usa o workflow `Xiri Windows` para compilar, testar e publicar a versão exata com checksum. A Beta 1 foi compilada na revisão `0d8d98c` (CI Windows 39912020684) e permanece disponível. Testes automatizados não comprovam acesso real ao repositório privado, instalação de programas ou funcionamento em todos os PCs.
++
++## Publicação
++
++Adaptação solicitada por sugyua em 22/10/2026. Créditos originais e licenças MIT/Apache-2.0 preservados. A marca Xiri é independente do ArtCraft. Consulte NOTICE e ATTRIBUTION.md.
+diff --git a/docs/VERIFICACOES.md b/docs/VERIFICACOES.md
+index d56dfea..46180bd 100644
+--- a/docs/VERIFICACOES.md
++++ b/docs/VERIFICACOES.md
+@@ -1,25 +1,25 @@
+-# Verificações do Xiri Launcher
+-
+-## Critério de publicação
+-
+-Uma release Windows deve ser gerada a partir do commit verificado, depois de `cargo xtask ci` aprovar formato, Clippy com avisos tratados como erros, testes do workspace e compilação dos módulos WebAssembly. O workflow também compila o executável Windows x64 e gera ZIP e SHA-256.
+-
+-O histórico de execução fica em [GitHub Actions](https://github.com/sugyua/xiri-launcher/actions). Os resultados finais e a identificação da release serão registrados após a conclusão das verificações. Este documento não declara aprovação de uma execução ainda pendente.
+-
+-## Cenários cobertos pelo código de testes
+-
+-- Contrato de pacote, versão de schema, extensão e validação de caminhos Windows.
+-- Filtros por proprietário, fork, arquivo, perfil e launcher; projetos com nomes semelhantes permanecem distintos.
+-- Paginação incompleta, resposta 304 sem cache e catálogo público vazio.
+-- Recusa de origens de download fora da release correta e dos hosts autorizados.
+-- ZIP com travessia de diretórios e colisão de nomes por caixa; extração sem execução dos arquivos.
+-- Escrita de estado que falha preserva a instalação anterior.
+-- Repositório removido do perfil mantém sua associação local e o aviso offline.
+-- Catálogo vazio e com 200 registros, busca e alternância entre grade e tabela.
+-- Regressões de interface, traduções, rede, processos e instaladores herdadas do projeto original, com as verificações de links ajustadas à identidade Xiri.
+-
+-## Limites
+-
+-A validação automática não equivale a testar todos os programas do catálogo, periféricos ou sensores. O Sensor Panel exige monitor secundário compatível e ferramentas de monitoramento. Os pacotes atuais do Destinia têm requisitos próprios. Esses programas não recebem novas garantias de compatibilidade por serem listados no launcher.
+-
+-O alvo inicial é Windows x64. O workspace conserva a verificação WebAssembly; instaladores MSI e distribuições para outros sistemas não fazem parte da primeira entrega. A atualização do próprio launcher será feita pelo download de uma nova release, sem substituição automática do executável nesta versão.
++# Verificações do Xiri Launcher
++
++## Critério de publicação
++
++Uma release Windows deve ser gerada a partir do commit verificado, depois de `cargo xtask ci` aprovar formato, Clippy com avisos tratados como erros, testes do workspace e compilação dos módulos WebAssembly. O workflow também compila o executável Windows x64 e gera ZIP e SHA-256.
++
++O histórico de execução fica em [GitHub Actions](https://github.com/sugyua/xiri-launcher/actions). Os resultados finais e a identificação da release serão registrados após a conclusão das verificações. Este documento não declara aprovação de uma execução ainda pendente.
++
++## Cenários cobertos pelo código de testes
++
++- Contrato de pacote, versão de schema, extensão e validação de caminhos Windows.
++- Filtros por proprietário, fork, arquivo, perfil e launcher; projetos com nomes semelhantes permanecem distintos.
++- Paginação incompleta, resposta 304 sem cache e catálogo público vazio.
++- Recusa de origens de download fora da release correta e dos hosts autorizados.
++- ZIP com travessia de diretórios e colisão de nomes por caixa; extração sem execução dos arquivos.
++- Escrita de estado que falha preserva a instalação anterior.
++- Repositório removido do perfil mantém sua associação local e o aviso offline.
++- Catálogo vazio e com 200 registros, busca e alternância entre grade e tabela.
++- Regressões de interface, traduções, rede, processos e instaladores herdadas do projeto original, com as verificações de links ajustadas à identidade Xiri.
++
++## Limites
++
++A validação automática não equivale a testar todos os programas do catálogo, periféricos ou sensores. O Sensor Panel exige monitor secundário compatível e ferramentas de monitoramento. Os pacotes atuais do Destinia têm requisitos próprios. Esses programas não recebem novas garantias de compatibilidade por serem listados no launcher.
++
++O alvo inicial é Windows x64. O workspace conserva a verificação WebAssembly; instaladores MSI e distribuições para outros sistemas não fazem parte da primeira entrega. A atualização do próprio launcher será feita pelo download de uma nova release, sem substituição automática do executável nesta versão.
