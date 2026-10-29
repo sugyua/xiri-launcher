@@ -275,98 +275,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 
 [[package]]
-name = "xiri-launcher"
-version = "0.1.0-beta.1"
-dependencies = [
- "xiri-launcher-core",
- "xiri-launcher-native",
- "xiri-launcher-ui-egui",
- "eframe",
- "egui",
- "env_logger",
- "image",
- "log",
- "notify-rust",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-foundation 0.3.2",
- "rfd",
- "ron",
- "serde",
- "tray-icon",
- "winreg",
- "winresource",
- "zbus",
-]
-
-[[package]]
-name = "xiri-launcher-core"
-version = "0.1.0-beta.1"
-dependencies = [
- "jiff",
- "semver",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "xiri-launcher-native"
-version = "0.1.0-beta.1"
-dependencies = [
- "xiri-launcher-core",
- "dirs 6.0.0",
- "dunce",
- "flate2",
- "log",
- "plist",
- "serde",
- "serde_json",
- "sha2",
- "tar",
- "tempfile",
- "ureq",
- "verifysign",
- "winreg",
- "winsafe",
- "zip",
-]
-
-[[package]]
-name = "xiri-launcher-ui-egui"
-version = "0.1.0-beta.1"
-dependencies = [
- "xiri-launcher-core",
- "egui",
- "egui_extras",
- "egui_kittest",
- "image",
- "jiff",
- "js-sys",
- "log",
- "serde",
- "serde_json",
- "skrifa",
- "sys-locale",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "xiri-launcher-web"
-version = "0.1.0-beta.1"
-dependencies = [
- "xiri-launcher-core",
- "xiri-launcher-ui-egui",
- "eframe",
- "egui",
- "js-sys",
- "log",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "as-raw-xcb-connection"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5862,6 +5770,98 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "163b33ed8786455e2fa5d72f554057ce3f3182425434f756cd39c99839d88e23"
 
 [[package]]
+name = "xiri-launcher"
+version = "0.1.0-beta.1"
+dependencies = [
+ "eframe",
+ "egui",
+ "env_logger",
+ "image",
+ "log",
+ "notify-rust",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "rfd",
+ "ron",
+ "serde",
+ "tray-icon",
+ "winreg",
+ "winresource",
+ "xiri-launcher-core",
+ "xiri-launcher-native",
+ "xiri-launcher-ui-egui",
+ "zbus",
+]
+
+[[package]]
+name = "xiri-launcher-core"
+version = "0.1.0-beta.1"
+dependencies = [
+ "jiff",
+ "semver",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "xiri-launcher-native"
+version = "0.1.0-beta.1"
+dependencies = [
+ "dirs 6.0.0",
+ "dunce",
+ "flate2",
+ "log",
+ "plist",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tar",
+ "tempfile",
+ "ureq",
+ "verifysign",
+ "winreg",
+ "winsafe",
+ "xiri-launcher-core",
+ "zip",
+]
+
+[[package]]
+name = "xiri-launcher-ui-egui"
+version = "0.1.0-beta.1"
+dependencies = [
+ "egui",
+ "egui_extras",
+ "egui_kittest",
+ "image",
+ "jiff",
+ "js-sys",
+ "log",
+ "serde",
+ "serde_json",
+ "skrifa",
+ "sys-locale",
+ "wasm-bindgen",
+ "xiri-launcher-core",
+]
+
+[[package]]
+name = "xiri-launcher-web"
+version = "0.1.0-beta.1"
+dependencies = [
+ "eframe",
+ "egui",
+ "js-sys",
+ "log",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "xiri-launcher-core",
+ "xiri-launcher-ui-egui",
+]
+
+[[package]]
 name = "xkbcommon-dl"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5894,7 +5894,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "0.7.0"
+version = "0.1.0-beta.1"
 dependencies = [
  "jiff",
 ]
