@@ -1875,7 +1875,16 @@ fn an_occupied_folder_asks_before_replacing_it() {
 
 #[test]
 fn a_not_installed_card_is_grey_until_the_pointer_is_over_it() {
-    let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    // Preload the same bundled PNG through the normal backend icon event. The default
+    // image loader decodes on a background thread, which can race this render test on
+    // heavily loaded Windows CI runners. The test should verify the hover effect,
+    // not how quickly a separate image decoding thread gets scheduled.
+    let mut ev = events();
+    ev.push(Event::AppIcon {
+        app: "cadcraft".into(),
+        bytes: include_bytes!("../../../assets/app-icons/cadcraft.png").to_vec(),
+    });
+    let (mut h, _) = harness_with(ev, ViewMode::Grid, egui::Theme::Dark, true, 1.0);
     h.set_size(egui::vec2(1180.0, 1100.0));
     h.run_steps(8);
     let icon = h.get_by_label("CADCraft icon").rect();
@@ -1893,19 +1902,9 @@ fn a_not_installed_card_is_grey_until_the_pointer_is_over_it() {
         most
     };
     assert!(colour(&mut h) <= 8, "a not installed app's icon is grey");
-    h.hover_at(egui::pos2(icon.center().x + 120.0, icon.center().y + 60.0));
-    // The colour picture decodes on a background thread: give it real time, as a slow machine
-    // (CI's Windows runner) needs more than a few frames.
-    let mut shown = 0;
-    for _ in 0..100 {
-        h.run_steps(2);
-        shown = colour(&mut h);
-        if shown > 40 {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(20));
-    }
-    assert!(shown > 40, "the icon shows its colour under the pointer");
+    h.hover_at(icon.center());
+    h.run_steps(8);
+    assert!(colour(&mut h) > 40, "the icon shows its colour under the pointer");
     h.hover_at(egui::pos2(5.0, 400.0));
     h.run_steps(8);
     assert!(colour(&mut h) <= 8, "the colour goes again when the pointer leaves");
