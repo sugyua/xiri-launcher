@@ -39,12 +39,14 @@ fn main() -> ExitCode {
     logging::install_panic_hook();
     // A copy of the launcher finishing a self-update: no window, log file or single-instance claim.
     #[cfg(windows)]
-    let helper_args = std::env::args_os().skip(1).collect::<Vec<_>>();
-    if let Some(done) = xiri_launcher_native::xiri_self_update::finish(&helper_args) {
-        return if done.is_ok() { ExitCode::SUCCESS } else { ExitCode::FAILURE };
-    }
-    if let Some(done) = xiri_launcher_native::self_update::finish(&helper_args) {
-        return if done.is_ok() { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+    {
+        let helper_args = std::env::args_os().skip(1).collect::<Vec<_>>();
+        if let Some(done) = xiri_launcher_native::xiri_self_update::finish(&helper_args) {
+            return if done.is_ok() { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+        }
+        if let Some(done) = xiri_launcher_native::self_update::finish(&helper_args) {
+            return if done.is_ok() { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+        }
     }
     // Detect system language in the background so the first frame can use it.
     xiri_launcher_ui_egui::i18n::detect_system_lang_in_background();

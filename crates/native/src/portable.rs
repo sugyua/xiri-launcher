@@ -93,6 +93,22 @@ fn linked(meta: &std::fs::Metadata) -> bool {
     }
 }
 
+/// Rejects links, non-files and escapes between `folder` and the file a self-update would write.
+fn validate_update_target(folder: &Path, inside: &Path) -> Result<PathBuf, String> {
+    if inside.as_os_str().is_empty() || inside.components().any(|c| !matches!(c, Component::Normal(_))) {
+        return Err("The update contains an unsafe path.".into());
+    }
+    let target = folder.join(inside);
+    let parent = target.parent().ok_or("no destination folder")?;
+    validate_owned_directory(folder, parent)?;
+    match std::fs::symlink_metadata(&target) {
+        Ok(meta) if linked(&meta) || !meta.is_file() => Err(format!("The update would replace a link or folder: {}", target.display())),
+        Ok(_) => Ok(target),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(target),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
 struct Staging(PathBuf);
 impl Drop for Staging {
     fn drop(&mut self) {
@@ -342,6 +358,7 @@ fn replace_with(
 ) -> Result<(), String> {
     let unpacked = staging.join("unpacked");
     let backup = staging.join("backup");
+    validate_owned_directory(folder, folder)?;
     std::fs::create_dir_all(&unpacked).map_err(|e| e.to_string())?;
     let files = extract(zip, &unpacked)?;
     let top = single_top_folder(&files);
@@ -361,14 +378,20 @@ fn replace_with(
     for (relative, _) in &files {
         check(&unpacked.join(relative))?;
     }
+    // Validate every destination before writing anything, so a link can't redirect the update.
+    for (_, inside) in &files {
+        validate_update_target(folder, inside)?;
+    }
     let mut saved = Vec::new();
     let mut created = Vec::new();
     let copied = (|| {
         for (relative, inside) in &files {
-            let target = folder.join(inside);
+            let target = validate_update_target(folder, inside)?;
             if let Some(parent) = target.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
+            // Check again after creating the folders: a link may have replaced one of them.
+            let target = validate_update_target(folder, inside)?;
             if target.is_file() {
                 let previous = backup.join(inside);
                 std::fs::create_dir_all(previous.parent().ok_or("no backup folder")?).map_err(|e| e.to_string())?;
@@ -390,7 +413,9 @@ fn replace_with(
             let _ = std::fs::remove_file(target);
         }
         for inside in &saved {
-            if let Err(restore) = std::fs::copy(backup.join(inside), folder.join(inside)) {
+            let restored = validate_update_target(folder, inside)
+                .and_then(|target| std::fs::copy(backup.join(inside), target).map(|_| ()).map_err(|e| e.to_string()));
+            if let Err(restore) = restored {
                 let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
                 let mut recovery = staging.as_os_str().to_owned();
                 recovery.push(format!("-recovery-{stamp}"));
@@ -473,6 +498,73 @@ mod tests {
         assert_eq!(std::fs::read(&exe).unwrap(), b"old launcher");
         assert!(!folder.join("README.md").exists());
         assert!(!staging.exists());
+    }
+
+    /// A junction inside the destination must never redirect a self-update write outside the folder.
+    #[cfg(windows)]
+    #[test]
+    fn a_self_update_never_writes_through_a_junction() {
+        use std::process::Command;
+
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::write(outside.join("README.md"), b"original").unwrap();
+        let folder = dir.path().join("Xiri Launcher");
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::write(folder.join("xiri-launcher.exe"), b"old launcher").unwrap();
+        let status = Command::new("cmd.exe").args(["/C", "mklink", "/J"]).arg(folder.join("assets")).arg(&outside).status().unwrap();
+        assert!(status.success());
+        let zip = archive(dir.path(), "update.zip", &[("xiri-launcher.exe", b"new launcher"), ("assets/README.md", b"overwritten")]);
+        let staging = dir.path().join("staging");
+        let error = unpack_over(&zip, &staging, &folder, std::ffi::OsStr::new("xiri-launcher.exe"), &|_| Ok(())).unwrap_err();
+        assert!(error.contains("link"), "{error}");
+        assert_eq!(std::fs::read(outside.join("README.md")).unwrap(), b"original");
+        assert_eq!(std::fs::read(folder.join("xiri-launcher.exe")).unwrap(), b"old launcher");
+
+        // The installation folder itself must not be reached through a link either.
+        let alias = dir.path().join("Xiri alias");
+        let status = Command::new("cmd.exe").args(["/C", "mklink", "/J"]).arg(&alias).arg(&folder).status().unwrap();
+        assert!(status.success());
+        let error = unpack_over(&zip, &dir.path().join("staging-alias"), &alias, std::ffi::OsStr::new("xiri-launcher.exe"), &|_| Ok(())).unwrap_err();
+        assert!(error.contains("link"), "{error}");
+        assert_eq!(std::fs::read(folder.join("xiri-launcher.exe")).unwrap(), b"old launcher");
+    }
+
+    /// A file symlink in the destination must not be followed outside the folder.
+    #[cfg(unix)]
+    #[test]
+    fn a_self_update_never_writes_through_a_file_symlink() {
+        use std::os::unix::fs::symlink;
+
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside.md");
+        std::fs::write(&outside, b"original").unwrap();
+        let folder = dir.path().join("Xiri Launcher");
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::write(folder.join("xiri-launcher.exe"), b"old launcher").unwrap();
+        symlink(&outside, folder.join("README.md")).unwrap();
+        let zip = archive(dir.path(), "update.zip", &[("xiri-launcher.exe", b"new launcher"), ("README.md", b"overwritten")]);
+        let staging = dir.path().join("staging");
+        let error = unpack_over(&zip, &staging, &folder, std::ffi::OsStr::new("xiri-launcher.exe"), &|_| Ok(())).unwrap_err();
+        assert!(error.contains("link"), "{error}");
+        assert_eq!(std::fs::read(&outside).unwrap(), b"original");
+        assert_eq!(std::fs::read(folder.join("xiri-launcher.exe")).unwrap(), b"old launcher");
+    }
+
+    /// A folder where the update expects a file is rejected before anything is written.
+    #[test]
+    fn a_self_update_never_replaces_a_folder_with_a_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("Xiri Launcher");
+        std::fs::create_dir_all(folder.join("README.md")).unwrap();
+        std::fs::write(folder.join("xiri-launcher.exe"), b"old launcher").unwrap();
+        let zip = archive(dir.path(), "update.zip", &[("xiri-launcher.exe", b"new launcher"), ("README.md", b"overwritten")]);
+        let staging = dir.path().join("staging");
+        let error = unpack_over(&zip, &staging, &folder, std::ffi::OsStr::new("xiri-launcher.exe"), &|_| Ok(())).unwrap_err();
+        assert!(error.contains("link or folder"), "{error}");
+        assert!(folder.join("README.md").is_dir());
+        assert_eq!(std::fs::read(folder.join("xiri-launcher.exe")).unwrap(), b"old launcher");
     }
 
     fn archive(root: &Path, name: &str, files: &[(&str, &[u8])]) -> PathBuf {
