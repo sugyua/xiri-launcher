@@ -73,6 +73,22 @@ jobs:
         with:
           path: target
           key: xiri-${{ runner.os }}-${{ github.run_id }}
+  non-windows:
+    name: Non-Windows check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: System dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1-mesa-dev libwayland-dev libx11-dev libxcb1-dev \
+            libxcursor-dev libxi-dev libxinerama-dev libxkbcommon-dev \
+            libxrandr-dev
+      - name: Check
+        run: cargo check --locked -p xiri-launcher
   packaging-lint:
     runs-on: ubuntu-latest
     steps:
